@@ -660,6 +660,9 @@ func _run_shot() -> void:
 			_on_structure_changed()
 			var eye := Vector3(-0.3, 1.3, 1.2)
 			rig.snap(eye, CameraRig.look_basis(eye, Vector3(0.6, 0.9, -1.2)), 55.0)
+		"window":
+			var eye := Vector3(0.4, 1.5, -0.6)
+			rig.snap(eye, CameraRig.look_basis(eye, Vector3(0, 1.7, -3.0)), 50.0)
 		"chair":
 			var eye := Vector3(0.0, 1.3, -0.5)
 			rig.snap(eye, CameraRig.look_basis(eye, Vector3(1.75, 0.5, 1.25)), 45.0)

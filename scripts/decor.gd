@@ -294,7 +294,8 @@ static func tube(parent: Node3D, pts: Array, r0: float, r1: float, mat: Material
 
 static func window(style: Dictionary) -> Node3D:
 	var root := Node3D.new()
-	var frame := Materials.std(style.get("trim", Color(0.9, 0.9, 0.9)), 0.5)
+	# frame, mullions and sill in the style's board wood (grain follows each piece)
+	var frame := Materials.shelf_wood(style)
 	var night := bool(style.get("night", false))
 	var glass := Materials.from_spec({
 		"shader": "sky_glass",

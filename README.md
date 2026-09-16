@@ -65,7 +65,7 @@ Screenshot harness (used during development):
 
 ```bash
 godot --path . --resolution 540x1080 -- --demo --mode=shelf --shot=/tmp/shelf.png
-# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
+# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, window, box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
 # add --style=timber_lodge (or any style id) to render a different style
 # add --night to render with night mode on
 godot --headless --path . -- --demo --apitest
