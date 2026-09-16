@@ -8,6 +8,12 @@ uniform vec3 color_a : source_color = vec3(0.50, 0.32, 0.16);
 uniform vec3 color_b : source_color = vec3(0.36, 0.21, 0.10);
 uniform float grain_scale = 1.0;
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.85;
+// Optional photo of real wood, sampled along the board (u) and around it (v) so the grain follows
+// the long axis and continues over the edges. tex_scale = metres per texture repeat.
+uniform sampler2D albedo_tex : source_color, hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float use_tex = 0.0;
+uniform float tex_scale = 1.0;
+uniform vec3 tex_tint : source_color = vec3(1.0, 1.0, 1.0);
 instance uniform vec3 box_size = vec3(1.0, 1.0, 1.0);
 
 varying highp vec3 lpos;
@@ -45,6 +51,9 @@ void fragment() {
 		highp float rr = length(c) * 60.0 + fbm3(c * 12.0 + seed) * 3.0;
 		float rings = sin(rr) * 0.5 + 0.5;
 		base = mix(color_a, color_b, rings * 0.5 + 0.35) * 0.92;
+		if (use_tex > 0.5) {
+			base = texture(albedo_tex, (c + seed) / tex_scale).rgb * tex_tint * 0.85;
+		}
 	} else {
 		// perimeter coordinate v, continuous across three of the four edges
 		highp float v;
@@ -62,6 +71,10 @@ void fragment() {
 		float rings = sin(uv.y * 42.0 + g * 4.0 + uv.x * 0.6) * 0.5 + 0.5;
 		float streak = fbm3(vec2(uv.x * 4.0, uv.y * 20.0)) * 0.22;
 		base = mix(color_a, color_b, rings * 0.42 + g * 0.45 + streak);
+		if (use_tex > 0.5) {
+			// grain of the photo runs along its y axis; map board length u onto it
+			base = texture(albedo_tex, vec2(u, v + seed * 0.37) / tex_scale).rgb * tex_tint;
+		}
 	}
 	ALBEDO = base;
 	ROUGHNESS = roughness_val;

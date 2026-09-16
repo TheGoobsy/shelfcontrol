@@ -56,13 +56,19 @@ func _build_case() -> void:
 	for c in case_root.get_children():
 		c.queue_free()
 	var sh: Dictionary = style.get("shelf", {})
-	var mat := Materials.from_spec({
+	var spec := {
 		"shader": "wood",
 		"color_a": sh.get("color_a", Color(0.45, 0.28, 0.14)),
 		"color_b": sh.get("color_b", Color(0.30, 0.18, 0.09)),
 		"roughness": sh.get("roughness", 0.55),
 		"grain_scale": 1.0,
-	})
+	}
+	if sh.has("texture"):
+		spec["albedo_tex"] = str(sh["texture"])
+		spec["use_tex"] = 1.0
+		spec["tex_scale"] = float(sh.get("tex_scale", 1.0))
+		spec["tex_tint"] = sh.get("tint", Color.WHITE)
+	var mat := Materials.from_spec(spec)
 	_box(Vector3(SIDE_T, H, D), Vector3(-W / 2.0 + SIDE_T / 2.0, H / 2.0, 0), mat)
 	_box(Vector3(SIDE_T, H, D), Vector3(W / 2.0 - SIDE_T / 2.0, H / 2.0, 0), mat)
 	_box(Vector3(W, TOP_T, D), Vector3(0, H - TOP_T / 2.0, 0), mat)

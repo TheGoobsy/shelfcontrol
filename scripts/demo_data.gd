@@ -74,7 +74,7 @@ static func populate() -> void:
 	Library.add_shelf(living, 3, 1, false, "Non-fiction")
 	Library.add_shelf(living, 3, 2, false, "Favourites")
 	Library.add_shelf(living, 1, 0, false, "To read")
-	var study := Library.add_room("Study", false)
+	var study := Library.add_room("Study", false, "office")
 	Library.add_shelf(study, 0, 2, false, "Reference")
 	Library.add_shelf(study, 2, 0, false, "Classics")
 	var rng := RandomNumberGenerator.new()

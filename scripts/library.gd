@@ -64,6 +64,8 @@ func _migrate() -> void:
 	for room in data["rooms"]:
 		if not room.has("shelves"):
 			room["shelves"] = []
+		if not room.has("type"):
+			room["type"] = "living"
 		for shelf in room["shelves"]:
 			if not shelf.has("rows"):
 				shelf["rows"] = []
@@ -147,13 +149,21 @@ func room_index(rid: String) -> int:
 			return i
 	return -1
 
-func add_room(room_name: String, emit := true) -> String:
-	var r := {"id": _new_id("r"), "name": room_name, "shelves": []}
+func add_room(room_name: String, emit := true, room_type := "living") -> String:
+	var r := {"id": _new_id("r"), "name": room_name, "shelves": [], "type": room_type}
 	data["rooms"].append(r)
 	if emit:
 		structure_changed.emit()
 		save()
 	return r["id"]
+
+func set_room_type(rid: String, room_type: String) -> void:
+	var r := get_room(rid)
+	if r.is_empty():
+		return
+	r["type"] = room_type
+	structure_changed.emit()
+	save()
 
 func rename_room(rid: String, room_name: String) -> void:
 	var r := get_room(rid)

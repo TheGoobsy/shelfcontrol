@@ -507,3 +507,242 @@ static func archive_box(_style: Dictionary) -> Node3D:
 	root.add_child(contents)
 	_pick_body(root, Vector3(W + 0.1, 0.45, D + 0.1), Vector3(0, 0.22, 0), "archive")
 	return root
+
+# ---------------------------------------------------------------- office
+
+static func desk(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var trim: Color = style.get("trim", Color(0.3, 0.18, 0.1))
+	var wood := Materials.std(trim.lightened(0.15), 0.7)
+	var dark := Materials.std(trim.darkened(0.15), 0.7)
+	var brass := Materials.std(Color(0.75, 0.6, 0.3), 0.35, 0.8)
+	const TOP := 0.76
+	box(root, Vector3(1.5, 0.04, 0.72), Vector3(0, TOP - 0.02, 0), wood)
+	# two drawer pedestals
+	for sx in [-0.55, 0.55]:
+		box(root, Vector3(0.38, TOP - 0.06, 0.66), Vector3(sx, (TOP - 0.06) / 2.0 + 0.02, 0), dark)
+		for i in 3:
+			var y := 0.14 + i * 0.22
+			box(root, Vector3(0.34, 0.17, 0.01), Vector3(sx, y + 0.085, 0.335), wood)
+			cyl(root, 0.012, 0.012, 0.03, Vector3(sx, y + 0.085, 0.35), brass, Vector3(PI / 2.0, 0, 0))
+	# modesty panel at the back
+	box(root, Vector3(0.75, 0.42, 0.02), Vector3(0, TOP - 0.25, -0.32), dark)
+	# papers, pen cup, mug
+	var paper := Materials.std(Color(0.95, 0.94, 0.90), 0.95)
+	box(root, Vector3(0.21, 0.004, 0.30), Vector3(-0.05, TOP + 0.002, 0.08), paper, Vector3(0, -0.15, 0))
+	box(root, Vector3(0.21, 0.004, 0.30), Vector3(-0.02, TOP + 0.006, 0.06), paper, Vector3(0, 0.08, 0))
+	var cup := Materials.std(Color(0.18, 0.18, 0.2), 0.5)
+	cyl(root, 0.035, 0.03, 0.1, Vector3(0.42, TOP + 0.05, -0.15), cup)
+	for i in 3:
+		cyl(root, 0.004, 0.004, 0.16, Vector3(0.42 + (i - 1) * 0.012, TOP + 0.12, -0.15 + (i % 2) * 0.012), Materials.std([Color(0.1, 0.2, 0.6), Color(0.7, 0.1, 0.1), Color(0.1, 0.1, 0.1)][i], 0.4), Vector3((i - 1) * 0.12, 0, 0.1))
+	var mug := Materials.std(Color(0.90, 0.86, 0.78), 0.55)
+	cyl(root, 0.04, 0.036, 0.09, Vector3(0.22, TOP + 0.045, 0.2), mug)
+	# banker's lamp: brass stem, green shade, warm light
+	var green := Materials.std(Color(0.10, 0.35, 0.22), 0.4)
+	cyl(root, 0.06, 0.07, 0.02, Vector3(-0.55, TOP + 0.01, -0.18), brass)
+	cyl(root, 0.008, 0.008, 0.3, Vector3(-0.55, TOP + 0.17, -0.18), brass)
+	box(root, Vector3(0.3, 0.09, 0.13), Vector3(-0.55, TOP + 0.34, -0.14), green, Vector3(-0.35, 0, 0))
+	var bulb := Materials.std(Color(1, 0.95, 0.85), 0.5, 0.0, Color(1.0, 0.9, 0.7), 2.5)
+	sphere(root, 0.018, Vector3(-0.55, TOP + 0.3, -0.1), bulb)
+	var light := OmniLight3D.new()
+	light.light_color = style.get("lamp", Color(1, 0.85, 0.65))
+	light.light_energy = float(style.get("lamp_energy", 2.0)) * 0.55
+	light.omni_range = 2.6
+	light.omni_attenuation = 1.4
+	light.shadow_enabled = false
+	light.position = Vector3(-0.55, TOP + 0.27, -0.05)
+	root.add_child(light)
+	return root
+
+static func office_chair(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var fabric := Materials.std(style.get("fabric", Color(0.3, 0.25, 0.22)).darkened(0.2), 0.9)
+	var metal := Materials.std(Color(0.2, 0.2, 0.21), 0.4, 0.7)
+	# five-star base with wheels
+	for i in 5:
+		var a := float(i) / 5.0 * TAU
+		var arm := box(root, Vector3(0.3, 0.025, 0.04), Vector3(cos(a) * 0.15, 0.06, sin(a) * 0.15), metal, Vector3(0, -a, 0))
+		arm.rotation = Vector3(0, -a, 0)
+		sphere(root, 0.028, Vector3(cos(a) * 0.29, 0.028, sin(a) * 0.29), metal)
+	cyl(root, 0.03, 0.03, 0.36, Vector3(0, 0.25, 0), metal)
+	box(root, Vector3(0.48, 0.09, 0.48), Vector3(0, 0.47, 0.02), fabric)
+	box(root, Vector3(0.46, 0.55, 0.08), Vector3(0, 0.80, -0.22), fabric, Vector3(0.1, 0, 0))
+	for sx in [-0.26, 0.26]:
+		box(root, Vector3(0.05, 0.03, 0.3), Vector3(sx, 0.70, 0.0), metal)
+		box(root, Vector3(0.05, 0.16, 0.05), Vector3(sx, 0.61, 0.1), metal)
+	return root
+
+# ---------------------------------------------------------------- bedroom
+
+static func bed(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var trim: Color = style.get("trim", Color(0.3, 0.18, 0.1))
+	var wood := Materials.std(trim.lightened(0.1), 0.7)
+	var fabric_col: Color = style.get("fabric", Color(0.4, 0.25, 0.18))
+	var duvet := Materials.std(fabric_col.lightened(0.25), 0.95)
+	var sheet := Materials.std(Color(0.93, 0.91, 0.86), 0.95)
+	var pillow := Materials.std(Color(0.96, 0.95, 0.92), 0.95)
+	# footprint 1.5 x 2.0, headboard at +z
+	box(root, Vector3(1.5, 0.22, 2.0), Vector3(0, 0.22, 0), wood)
+	for sx in [-0.7, 0.7]:
+		for sz in [-0.95, 0.95]:
+			box(root, Vector3(0.08, 0.12, 0.08), Vector3(sx, 0.06, sz), wood)
+	box(root, Vector3(1.42, 0.2, 1.92), Vector3(0, 0.43, 0), sheet)
+	box(root, Vector3(1.48, 0.14, 1.35), Vector3(0, 0.56, -0.3), duvet)
+	box(root, Vector3(1.48, 0.06, 0.3), Vector3(0, 0.52, 0.42), duvet, Vector3(0.6, 0, 0))
+	for sx in [-0.36, 0.36]:
+		var pl := sphere(root, 0.24, Vector3(sx, 0.60, 0.72), pillow, Vector3(1.3, 0.35, 0.8))
+		pl.rotation = Vector3(-0.3, 0, 0)
+	box(root, Vector3(1.5, 0.9, 0.06), Vector3(0, 0.7, 1.0), wood)
+	return root
+
+static func nightstand(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var trim: Color = style.get("trim", Color(0.3, 0.18, 0.1))
+	var wood := Materials.std(trim.lightened(0.1), 0.7)
+	var brass := Materials.std(Color(0.75, 0.6, 0.3), 0.35, 0.8)
+	box(root, Vector3(0.42, 0.55, 0.4), Vector3(0, 0.3, 0), wood)
+	box(root, Vector3(0.36, 0.14, 0.01), Vector3(0, 0.42, 0.205), Materials.std(trim.lightened(0.2), 0.7))
+	cyl(root, 0.012, 0.012, 0.03, Vector3(0, 0.42, 0.22), brass, Vector3(PI / 2.0, 0, 0))
+	# small lamp
+	cyl(root, 0.07, 0.08, 0.02, Vector3(0, 0.585, 0), brass)
+	cyl(root, 0.01, 0.01, 0.22, Vector3(0, 0.7, 0), brass)
+	var shade := Materials.double_sided(style.get("fabric", Color(0.8, 0.75, 0.65)).lightened(0.35), 0.9)
+	cyl(root, 0.09, 0.13, 0.16, Vector3(0, 0.86, 0), shade)
+	var bulb := Materials.std(Color(1, 0.95, 0.85), 0.5, 0.0, Color(1.0, 0.9, 0.7), 2.5)
+	sphere(root, 0.025, Vector3(0, 0.82, 0), bulb)
+	var light := OmniLight3D.new()
+	light.light_color = style.get("lamp", Color(1, 0.8, 0.6))
+	light.light_energy = float(style.get("lamp_energy", 2.0)) * 0.6
+	light.omni_range = 3.5
+	light.omni_attenuation = 1.3
+	light.shadow_enabled = false
+	light.position = Vector3(0, 0.82, 0)
+	root.add_child(light)
+	# a book left on top
+	box(root, Vector3(0.13, 0.025, 0.19), Vector3(0.1, 0.5875, 0.08), Materials.std(Color(0.35, 0.15, 0.2), 0.7), Vector3(0, 0.3, 0))
+	return root
+
+# ---------------------------------------------------------------- fantasy library
+
+static func _candle(parent: Node3D, pos: Vector3, h: float, r := 0.018) -> void:
+	var wax := Materials.std(Color(0.94, 0.90, 0.78), 0.8)
+	cyl(parent, r, r, h, pos + Vector3(0, h / 2.0, 0), wax)
+	var flame := Materials.std(Color(1.0, 0.85, 0.5), 0.5, 0.0, Color(1.0, 0.7, 0.3), 5.0)
+	sphere(parent, 0.012, pos + Vector3(0, h + 0.02, 0), flame, Vector3(0.7, 1.4, 0.7))
+
+static func candelabra(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var iron := Materials.std(Color(0.12, 0.11, 0.10), 0.5, 0.6)
+	cyl(root, 0.14, 0.17, 0.03, Vector3(0, 0.015, 0), iron)
+	cyl(root, 0.018, 0.022, 1.15, Vector3(0, 0.6, 0), iron)
+	sphere(root, 0.04, Vector3(0, 0.55, 0), iron)
+	var top := 1.18
+	_candle(root, Vector3(0, top + 0.02, 0), 0.16, 0.02)
+	for i in 4:
+		var a := float(i) / 4.0 * TAU
+		var arm_end := Vector3(cos(a) * 0.17, top, sin(a) * 0.17)
+		var arm := box(root, Vector3(0.17, 0.014, 0.014), arm_end * 0.5 + Vector3(0, top * 0.5 - 0.02, 0) * 0.0, iron)
+		arm.position = Vector3(cos(a) * 0.085, top - 0.02, sin(a) * 0.085)
+		arm.rotation = Vector3(0, -a, 0)
+		cyl(root, 0.03, 0.02, 0.02, arm_end + Vector3(0, -0.01, 0), iron)
+		_candle(root, arm_end, 0.12)
+	var light := FlickerLight.new()
+	light.light_color = Color(1.0, 0.72, 0.4)
+	light.light_energy = float(style.get("lamp_energy", 2.0)) * 0.7
+	light.amount = 0.18
+	light.speed = 5.0
+	light.omni_range = 4.5
+	light.omni_attenuation = 1.4
+	light.shadow_enabled = false
+	light.position = Vector3(0, top + 0.3, 0)
+	root.add_child(light)
+	return root
+
+static func lectern(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var trim: Color = style.get("trim", Color(0.3, 0.18, 0.1))
+	var wood := Materials.std(trim.darkened(0.1), 0.7)
+	cyl(root, 0.2, 0.26, 0.04, Vector3(0, 0.02, 0), wood)
+	cyl(root, 0.045, 0.06, 1.0, Vector3(0, 0.54, 0), wood)
+	var top := Node3D.new()
+	top.position = Vector3(0, 1.1, 0)
+	top.rotation = Vector3(-0.45, 0, 0)
+	root.add_child(top)
+	box(top, Vector3(0.6, 0.03, 0.45), Vector3.ZERO, wood)
+	box(top, Vector3(0.6, 0.05, 0.03), Vector3(0, 0.025, 0.225), wood)
+	# open tome: two leather covers, page blocks, a ribbon
+	var leather := Materials.std(Color(0.35, 0.12, 0.10), 0.6)
+	var pages := Materials.std(Color(0.93, 0.88, 0.76), 0.95)
+	for sx in [-1.0, 1.0]:
+		box(top, Vector3(0.22, 0.01, 0.32), Vector3(sx * 0.115, 0.02, 0.0), leather, Vector3(0, 0, sx * 0.05))
+		box(top, Vector3(0.20, 0.035, 0.30), Vector3(sx * 0.11, 0.045, 0.0), pages, Vector3(0, 0, sx * 0.05))
+	box(top, Vector3(0.02, 0.005, 0.36), Vector3(0.06, 0.065, 0.02), Materials.std(Color(0.7, 0.1, 0.15), 0.6))
+	return root
+
+static func crystal_ball(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var trim: Color = style.get("trim", Color(0.3, 0.18, 0.1))
+	var wood := Materials.std(trim, 0.7)
+	var brass := Materials.std(Color(0.75, 0.6, 0.3), 0.35, 0.8)
+	cyl(root, 0.22, 0.22, 0.03, Vector3(0, 0.815, 0), wood)
+	cyl(root, 0.03, 0.05, 0.78, Vector3(0, 0.41, 0), wood)
+	cyl(root, 0.2, 0.24, 0.03, Vector3(0, 0.015, 0), wood)
+	# claw base and the glass
+	cyl(root, 0.07, 0.1, 0.05, Vector3(0, 0.855, 0), brass)
+	var glass := StandardMaterial3D.new()
+	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glass.albedo_color = Color(0.55, 0.75, 1.0, 0.45)
+	glass.roughness = 0.05
+	glass.emission_enabled = true
+	glass.emission = Color(0.35, 0.55, 1.0)
+	glass.emission_energy_multiplier = 1.6
+	sphere(root, 0.13, Vector3(0, 1.0, 0), glass)
+	var core := Materials.std(Color(0.6, 0.8, 1.0), 0.3, 0.0, Color(0.5, 0.7, 1.0), 4.0)
+	sphere(root, 0.04, Vector3(0, 1.0, 0), core)
+	var light := FlickerLight.new()
+	light.light_color = Color(0.45, 0.65, 1.0)
+	light.light_energy = 1.4
+	light.amount = 0.3
+	light.speed = 2.5
+	light.omni_range = 3.5
+	light.omni_attenuation = 1.3
+	light.shadow_enabled = false
+	light.position = Vector3(0, 1.0, 0)
+	root.add_child(light)
+	return root
+
+static func chandelier(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var iron := Materials.std(Color(0.12, 0.11, 0.10), 0.5, 0.6)
+	cyl(root, 0.006, 0.006, 0.7, Vector3(0, -0.35, 0), iron)
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.42
+	ring.outer_radius = 0.46
+	ring.rings = 32
+	_mesh(root, ring, Vector3(0, -0.72, 0), iron)
+	for i in 8:
+		var a := float(i) / 8.0 * TAU
+		var pos := Vector3(cos(a) * 0.44, -0.71, sin(a) * 0.44)
+		cyl(root, 0.03, 0.02, 0.02, pos, iron)
+		_candle(root, pos + Vector3(0, 0.01, 0), 0.11)
+	for i in 3:
+		var a := float(i) / 3.0 * TAU + 0.3
+		var chain := cyl(root, 0.004, 0.004, 0.5, Vector3(cos(a) * 0.22, -0.5, sin(a) * 0.22), iron)
+		chain.rotation = Vector3(sin(a) * 0.72, 0, -cos(a) * 0.72)
+	var light := FlickerLight.new()
+	light.light_color = Color(1.0, 0.74, 0.42)
+	light.light_energy = float(style.get("lamp_energy", 2.0)) * 0.9
+	light.amount = 0.15
+	light.speed = 4.5
+	light.omni_range = 9.0
+	light.omni_attenuation = 1.1
+	light.shadow_enabled = true
+	light.omni_shadow_mode = OmniLight3D.SHADOW_CUBE
+	light.shadow_bias = 0.06
+	light.shadow_normal_bias = 2.5
+	light.shadow_blur = 2.4
+	light.shadow_opacity = 0.9
+	light.position = Vector3(0, -0.62, 0)
+	root.add_child(light)
+	return root

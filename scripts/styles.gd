@@ -33,6 +33,26 @@ var styles: Dictionary = {
 		"pot": Color(0.62, 0.36, 0.25),
 		"ui_bg": Color(0.13, 0.08, 0.05, 0.92), "ui_fg": Color(0.97, 0.92, 0.84), "ui_accent": Color(0.90, 0.58, 0.28), "ui_muted": Color(0.75, 0.66, 0.55),
 	},
+	"timber_lodge": {
+		"name": "Timber Lodge",
+		"blurb": "Photo-real logs, worn pine floor and dark hardwood shelves (textures from Poly Haven).",
+		"wall": {"pbr": "res://textures/lodge/wood_trunk_wall", "tile": 1.6, "normal_scale": 0.9, "tint": Color(0.95, 0.88, 0.80)},
+		"floor": {"pbr": "res://textures/lodge/wood_floor_worn", "tile": 2.2, "normal_scale": 0.6, "tint": Color(0.92, 0.84, 0.74)},
+		"ceiling": {"pbr": "res://textures/lodge/brown_planks_09", "tile": 1.4, "normal_scale": 0.5, "tint": Color(0.70, 0.62, 0.55)},
+		"trim": Color(0.22, 0.13, 0.08),
+		"shelf": {"texture": "res://textures/lodge/dark_wood_diff.jpg", "tex_scale": 1.3, "tint": Color(0.82, 0.74, 0.68), "color_a": Color(0.30, 0.18, 0.10), "color_b": Color(0.17, 0.10, 0.06), "roughness": 0.8},
+		"background": Color(0.04, 0.03, 0.02),
+		"ambient": Color(1.0, 0.84, 0.66), "ambient_energy": 0.5,
+		"sun": Color(1.0, 0.90, 0.74), "sun_energy": 1.4,
+		"lamp": Color(1.0, 0.72, 0.42), "lamp_energy": 2.8,
+		"glow": true,
+		"decor": ["fireplace", "window", "rug", "cat", "plant", "plant", "armchair", "side_table", "floor_lamp", "pendant"],
+		"cat_color": Color(0.35, 0.30, 0.28),
+		"rug": {"field": Color(0.36, 0.16, 0.12), "border": Color(0.20, 0.09, 0.07), "accent": Color(0.78, 0.64, 0.42)},
+		"fabric": Color(0.30, 0.22, 0.18),
+		"pot": Color(0.45, 0.30, 0.22),
+		"ui_bg": Color(0.11, 0.07, 0.05, 0.92), "ui_fg": Color(0.96, 0.91, 0.83), "ui_accent": Color(0.86, 0.55, 0.26), "ui_muted": Color(0.72, 0.64, 0.54),
+	},
 	"modern_loft": {
 		"name": "Modern Loft",
 		"blurb": "Exposed brick, concrete floor and light oak.",
@@ -95,6 +115,30 @@ var styles: Dictionary = {
 		"ui_bg": Color(0.97, 0.96, 0.94, 0.94), "ui_fg": Color(0.15, 0.16, 0.16), "ui_accent": Color(0.30, 0.52, 0.47), "ui_muted": Color(0.45, 0.47, 0.47),
 	},
 }
+
+## Furniture sets, chosen per room. "living" uses the style's own decor list.
+const ROOM_TYPES := {
+	"living": {"name": "Living room", "blurb": "Armchair, side table, lamp and the style's own touches."},
+	"office": {"name": "Office", "blurb": "Writing desk with a lamp, swivel chair, globe and plants.",
+		"decor": ["window", "desk", "office_chair", "plant", "plant", "globe", "pendant", "cat"]},
+	"bedroom": {"name": "Bedroom", "blurb": "Bed with pillows, nightstand lamp, rug and a sleeping cat.",
+		"decor": ["window", "bed", "nightstand", "rug", "cat", "plant", "pendant"]},
+	"fantasy": {"name": "Fantasy library", "blurb": "Candelabras, a lectern with an open tome, a crystal ball and a candle chandelier.",
+		"decor": ["fireplace", "rug", "cat", "candelabra", "candelabra", "lectern", "crystal_ball", "chandelier", "globe", "plant"]},
+}
+
+func room_type_ids() -> Array:
+	return ROOM_TYPES.keys()
+
+func room_type(id: String) -> Dictionary:
+	return ROOM_TYPES.get(id, ROOM_TYPES["living"])
+
+## The decor list for a room: its type's furniture, or the style's list for a living room.
+func room_decor(room: Dictionary, style: Dictionary) -> Array:
+	var t := str(room.get("type", "living"))
+	if t == "living" or not ROOM_TYPES.has(t):
+		return style.get("decor", [])
+	return ROOM_TYPES[t]["decor"]
 
 func ids() -> Array:
 	return styles.keys()

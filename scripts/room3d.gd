@@ -15,6 +15,7 @@ const TABLE_STACK_MAX := 6
 const ARCHIVE_SHOW_MAX := 10
 
 const PLANT_CORNERS := [Vector3(-3.05, 0, -2.05), Vector3(3.05, 0, -2.05), Vector3(-3.05, 0, 2.1), Vector3(3.1, 0, 2.5)]
+const CANDLE_SPOTS := [Vector3(-2.3, 0, 1.9), Vector3(2.3, 0, 1.9), Vector3(0, 0, -2.2)]
 
 func build(r: Dictionary, st: Dictionary) -> void:
 	room = r
@@ -119,9 +120,10 @@ func _build_decor() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(room.get("id", "")) + str(style.get("name", "")))
 	var plant_i := 0
+	var candle_i := 0
 	var has_fireplace := false
 	var fire_pos := Vector3(0, 0, Styles.ROOM_D / 2.0)
-	for d in style.get("decor", []):
+	for d in Styles.room_decor(room, style):
 		match str(d):
 			"fireplace":
 				var cs: int = Styles.center_slot(2)
@@ -175,6 +177,42 @@ func _build_decor() -> void:
 				var g := Decor.globe(style)
 				add_child(g)
 				g.position = Vector3(-2.55, 0, 1.9)
+			"desk":
+				var dk := Decor.desk(style)
+				add_child(dk)
+				dk.position = Vector3(1.7, 0, 1.15)
+			"office_chair":
+				var oc := Decor.office_chair(style)
+				add_child(oc)
+				oc.position = Vector3(1.75, 0, 1.95)
+				oc.rotation.y = PI + 0.25
+			"bed":
+				var bd := Decor.bed(style)
+				add_child(bd)
+				bd.position = Vector3(-1.9, 0, 1.75)
+			"nightstand":
+				var ns := Decor.nightstand(style)
+				add_child(ns)
+				ns.position = Vector3(-0.95, 0, 2.5)
+			"candelabra":
+				if candle_i < CANDLE_SPOTS.size():
+					var cd := Decor.candelabra(style)
+					add_child(cd)
+					cd.position = CANDLE_SPOTS[candle_i]
+					candle_i += 1
+			"lectern":
+				var lc := Decor.lectern(style)
+				add_child(lc)
+				lc.position = Vector3(1.6, 0, -1.1)
+				lc.rotation.y = -0.5
+			"crystal_ball":
+				var cb := Decor.crystal_ball(style)
+				add_child(cb)
+				cb.position = Vector3(-1.7, 0, -1.2)
+			"chandelier":
+				var ch := Decor.chandelier(style)
+				add_child(ch)
+				ch.position = Vector3(0, Styles.ROOM_H, 0.3)
 
 ## Functional props present in every room: the reading table and the archive box.
 func _build_props() -> void:
@@ -184,8 +222,10 @@ func _build_props() -> void:
 	table.rotation.y = 0.12
 	archive = Decor.archive_box(style)
 	add_child(archive)
-	archive.position = ARCHIVE_POS
-	var dir := Vector3(0, 0, 0.3) - ARCHIVE_POS
+	# the bed takes the south-west corner in a bedroom, so the box moves to the other side
+	var apos := ARCHIVE_POS if str(room.get("type", "living")) != "bedroom" else Vector3(2.4, 0, 2.5)
+	archive.position = apos
+	var dir := Vector3(0, 0, 0.3) - apos
 	archive.rotation.y = atan2(dir.x, dir.z)
 	refresh_props()
 

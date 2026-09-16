@@ -644,6 +644,22 @@ func _run_shot() -> void:
 			rig.snap(Vector3(0.9, 1.3, -0.6), CameraRig.look_basis(Vector3(0.9, 1.3, -0.6), Vector3(0, 0.9, 3.0)), 55.0)
 		"cat":
 			rig.snap(Vector3(0.6, 1.0, -0.4), CameraRig.look_basis(Vector3(0.6, 1.0, -0.4), Vector3(-0.75, 0.1, 0.85)), 40.0)
+		"office", "bedroom", "fantasy":
+			Library.get_rooms()[0]["type"] = shot_mode
+			_on_structure_changed()
+			yaw = 2.6 if shot_mode != "fantasy" else -2.5
+			pitch = -0.1
+			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+		"office2":
+			Library.get_rooms()[0]["type"] = "office"
+			_on_structure_changed()
+			var eye := Vector3(0.2, 1.4, -0.2)
+			rig.snap(eye, CameraRig.look_basis(eye, Vector3(1.7, 0.8, 1.4)), 50.0)
+		"fantasy2":
+			Library.get_rooms()[0]["type"] = "fantasy"
+			_on_structure_changed()
+			var eye := Vector3(-0.3, 1.3, 1.2)
+			rig.snap(eye, CameraRig.look_basis(eye, Vector3(0.6, 0.9, -1.2)), 55.0)
 		"table":
 			var eye := Vector3(1.1, 1.25, 1.35)
 			rig.snap(eye, CameraRig.look_basis(eye, Room3D.TABLE_POS + Vector3(0, 0.45, 0)), 42.0)
