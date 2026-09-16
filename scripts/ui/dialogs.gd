@@ -443,6 +443,31 @@ func open_settings() -> void:
 	c.add_child(sens_card)
 
 	c.add_child(hud.spacer(6))
+	c.add_child(_bold_label("Scene", 26))
+	var night_card := PanelContainer.new()
+	night_card.theme_type_variation = "Card"
+	var nr := hud.row(14)
+	var nv := VBoxContainer.new()
+	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nv.add_theme_constant_override("separation", 2)
+	nv.add_child(_bold_label("Night mode", 29))
+	nv.add_child(hud.label("Dark sky outside, moonlight, lamps and fire carry the room.", "SubLabel"))
+	nr.add_child(nv)
+	var night_opt := OptionButton.new()
+	night_opt.custom_minimum_size = Vector2(250, 80)
+	night_opt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var night_keys := ["off", "on", "auto"]
+	for i in night_keys.size():
+		night_opt.add_item(["Off", "On", "Auto (19–07)"][i])
+		if night_keys[i] == str(Settings.get_value("night_mode")):
+			night_opt.selected = i
+	night_opt.item_selected.connect(func(i: int): Settings.set_value("night_mode", night_keys[i]))
+	nr.add_child(night_opt)
+	night_card.add_child(nr)
+	c.add_child(night_card)
+
+	c.add_child(hud.spacer(6))
 	c.add_child(_bold_label("Books", 26))
 	_toggle(c, "Spine titles read top to bottom", "Off: titles read bottom to top, as on many European books.", "spine_top_down")
 	var key_card := PanelContainer.new()

@@ -11,7 +11,7 @@ const PLANT_CORNERS := [Vector3(-3.05, 0, -2.05), Vector3(3.05, 0, -2.05), Vecto
 
 func build(r: Dictionary, st: Dictionary) -> void:
 	room = r
-	style = st
+	style = Styles.night_variant(st) if Settings.is_night() else st
 	for c in get_children():
 		remove_child(c)
 		c.queue_free()
@@ -85,12 +85,12 @@ func _build_lights() -> void:
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_split_1 = 0.35
 	sun.directional_shadow_blend_splits = true
-	sun.directional_shadow_max_distance = 11.0
+	sun.directional_shadow_max_distance = 9.5
 	sun.directional_shadow_fade_start = 0.9
 	sun.shadow_bias = 0.035
 	sun.shadow_normal_bias = 2.0
 	sun.shadow_opacity = 0.9
-	sun.shadow_blur = 1.2
+	sun.shadow_blur = 0.7
 	add_child(sun)
 
 func _build_shelves() -> void:

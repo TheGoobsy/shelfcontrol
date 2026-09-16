@@ -36,6 +36,7 @@ var drag_index := -1
 var drag_fits := true
 var drag_over_tray := false
 var _last_preview := ""
+var _night_now := false
 var _last_tap_time := 0
 var _last_tap_pos := Vector2.ZERO
 
@@ -87,8 +88,17 @@ func _ready() -> void:
 		else:
 			hud.dialogs.open_room_menu())
 	Settings.changed.connect(func(key: String):
-		if key == "spine_top_down":
+		if key == "spine_top_down" or key == "night_mode":
 			_on_structure_changed())
+	_night_now = Settings.is_night()
+	var clock := Timer.new()
+	clock.wait_time = 60.0
+	clock.autostart = true
+	clock.timeout.connect(func():
+		if Settings.is_night() != _night_now:
+			_night_now = Settings.is_night()
+			_on_structure_changed())
+	add_child(clock)
 
 	Library.structure_changed.connect(_on_structure_changed)
 	Library.placement_changed.connect(_on_placement_changed)
@@ -117,6 +127,8 @@ func _parse_args() -> void:
 			shot_mode = a.trim_prefix("--mode=")
 		elif a.begins_with("--style="):
 			shot_style = a.trim_prefix("--style=")
+		elif a == "--night":
+			Settings.data["night_mode"] = "on"
 		elif a == "--apitest":
 			_run_api_test.call_deferred()
 		elif a.begins_with("--csvtest="):

@@ -11,6 +11,7 @@ const DEFAULTS := {
 	"look_sensitivity": 1.0,    # 0.5 .. 2.0
 	"spine_top_down": true,     # spine titles read top→bottom (false = bottom→top)
 	"google_api_key": "",
+	"night_mode": "off",        # off | on | auto (19:00–07:00)
 }
 
 var data: Dictionary = {}
@@ -41,3 +42,12 @@ func set_value(key: String, value: Variant) -> void:
 func reset() -> void:
 	for k in DEFAULTS.keys():
 		set_value(k, DEFAULTS[k])
+
+func is_night() -> bool:
+	var mode := str(get_value("night_mode"))
+	if mode == "on":
+		return true
+	if mode == "auto":
+		var h: int = Time.get_time_dict_from_system()["hour"]
+		return h >= 19 or h < 7
+	return false

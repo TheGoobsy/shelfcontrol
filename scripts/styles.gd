@@ -143,3 +143,16 @@ func center_slot(wall: int) -> int:
 	if n % 2 == 1:
 		return n / 2
 	return -1
+
+## A copy of the style adjusted for night: moonlight instead of sun, cool dim ambient, dark sky.
+func night_variant(style: Dictionary) -> Dictionary:
+	var st := style.duplicate(true)
+	st["night"] = true
+	st["background"] = Color(0.01, 0.01, 0.03)
+	st["ambient"] = Color(0.40, 0.48, 0.75)
+	st["ambient_energy"] = maxf(0.16, float(style.get("ambient_energy", 0.4)) * 0.45)
+	st["sun"] = Color(0.55, 0.65, 1.0)
+	st["sun_energy"] = 0.28
+	st["lamp_energy"] = float(style.get("lamp_energy", 2.0)) * 1.25
+	st["glow"] = true
+	return st

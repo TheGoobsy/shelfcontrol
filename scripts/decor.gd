@@ -293,9 +293,14 @@ static func tube(parent: Node3D, pts: Array, r0: float, r1: float, mat: Material
 static func window(style: Dictionary) -> Node3D:
 	var root := Node3D.new()
 	var frame := Materials.std(style.get("trim", Color(0.9, 0.9, 0.9)), 0.5)
+	var night := bool(style.get("night", false))
 	var glass := Materials.from_spec({
 		"shader": "sky_glass",
-		"sky_top": Color(0.35, 0.55, 0.85), "sky_bottom": Color(0.85, 0.82, 0.72), "brightness": 1.3,
+		"sky_top": Color(0.02, 0.03, 0.10) if night else Color(0.35, 0.55, 0.85),
+		"sky_bottom": Color(0.08, 0.09, 0.20) if night else Color(0.85, 0.82, 0.72),
+		"brightness": 0.9 if night else 1.3,
+		"stars": 1.0 if night else 0.0,
+		"moon": 1.0 if night else 0.0,
 	})
 	var w := 1.3
 	var h := 1.5
@@ -313,8 +318,8 @@ static func window(style: Dictionary) -> Node3D:
 	box(root, Vector3(w, 0.035, 0.04), Vector3(0, y0 + h / 2.0, 0.0), frame)
 	box(root, Vector3(w + 2 * t + 0.1, 0.05, 0.22), Vector3(0, y0 - t - 0.025, 0.06), frame)
 	var light := OmniLight3D.new()
-	light.light_color = Color(0.80, 0.88, 1.0)
-	light.light_energy = 1.6
+	light.light_color = Color(0.55, 0.65, 1.0) if night else Color(0.80, 0.88, 1.0)
+	light.light_energy = 0.5 if night else 1.6
 	light.omni_range = 6.5
 	light.omni_attenuation = 1.2
 	light.shadow_enabled = false
@@ -392,7 +397,7 @@ static func pendant(style: Dictionary) -> Node3D:
 	light.omni_shadow_mode = OmniLight3D.SHADOW_CUBE
 	light.shadow_bias = 0.06
 	light.shadow_normal_bias = 2.0
-	light.shadow_blur = 1.2
+	light.shadow_blur = 0.8
 	light.shadow_opacity = 0.9
 	light.position = Vector3(0, -0.72, 0)
 	root.add_child(light)
