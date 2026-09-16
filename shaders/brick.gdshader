@@ -8,7 +8,6 @@ uniform float brick_w = 0.24;
 uniform float brick_h = 0.075;
 uniform float mortar_w = 0.012;
 uniform float jitter = 0.0;
-uniform float bump = 0.045;
 
 varying highp vec3 wpos;
 varying vec3 wnrm;
@@ -35,8 +34,6 @@ void fragment() {
 	float is_mortar = clamp(mortar_x + mortar_y, 0.0, 1.0);
 	vec3 col = mix(bcol, mortar, is_mortar);
 	float surface = fbm(uv * 12.0 + id) * 0.4;
-	float h = -is_mortar * 1.0 + surface * (1.0 - is_mortar);
-	NORMAL = bump_normal(NORMAL, VERTEX, h, bump);
 	ALBEDO = col * (0.94 + surface * 0.15 + fbm(uv * 30.0) * 0.08);
-	ROUGHNESS = mix(0.84 + surface * 0.12, 0.97, is_mortar);
+	ROUGHNESS = 0.9;
 }

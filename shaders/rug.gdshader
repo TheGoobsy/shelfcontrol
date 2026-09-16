@@ -32,7 +32,6 @@ void fragment() {
 	}
 	float weave = fbm(p * 60.0);
 	col *= 0.88 + 0.24 * weave;
-	NORMAL = bump_normal(NORMAL, VERTEX, weave + in_border * 0.5, 0.012);
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
 }

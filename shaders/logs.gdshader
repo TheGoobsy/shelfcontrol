@@ -4,7 +4,6 @@ shader_type spatial;
 uniform vec3 color_a : source_color = vec3(0.58, 0.38, 0.21);
 uniform vec3 color_b : source_color = vec3(0.38, 0.23, 0.12);
 uniform float log_height = 0.3;
-uniform float bump = 0.035;
 
 varying highp vec3 wpos;
 varying vec3 wnrm;
@@ -27,11 +26,8 @@ void fragment() {
 	base *= mix(0.3, 1.0, seam);
 	vec3 up_v = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
 	NORMAL = normalize(NORMAL + up_v * c * 0.9);
-	// bark-like grain ridges and knots, deep seams between logs
 	float knots = smoothstep(0.62, 0.7, fbm(vec2(uv.x * 0.8 + row * 3.0, uv.y * 2.0)));
-	float h = grain * 0.4 - (1.0 - seam) * 1.2 - knots * 0.4;
-	NORMAL = bump_normal(NORMAL, VERTEX, h, bump);
 	base = mix(base, base * 0.7, knots);
 	ALBEDO = base;
-	ROUGHNESS = 0.78 + grain * 0.2 - knots * 0.1;
+	ROUGHNESS = 0.85;
 }

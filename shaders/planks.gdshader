@@ -7,7 +7,6 @@ uniform float plank_width = 0.18;
 uniform float plank_length = 1.6;
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.6;
 uniform float uv_scale = 1.0;
-uniform float bump = 0.035;
 
 varying highp vec3 wpos;
 varying vec3 wnrm;
@@ -29,9 +28,6 @@ void fragment() {
 	float sx = abs(fract((uv.x + off) / plank_length) - 0.5) * 2.0;
 	float seam = clamp(smoothstep(0.93, 1.0, sy) + smoothstep(0.985, 1.0, sx), 0.0, 1.0);
 	base *= 1.0 - 0.55 * seam;
-	// height: grooves between planks plus fine grain ridges
-	float h = -seam * 1.0 + grain * 0.2;
-	NORMAL = bump_normal(NORMAL, VERTEX, h, bump);
 	ALBEDO = base;
-	ROUGHNESS = clamp(roughness_val + 0.25 * grain - 0.12 + seam * 0.3, 0.0, 1.0);
+	ROUGHNESS = roughness_val;
 }
