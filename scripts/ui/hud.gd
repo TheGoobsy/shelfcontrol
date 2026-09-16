@@ -26,8 +26,8 @@ var title_btn: Button
 var title_lbl: Label
 var sub_lbl: Label
 var bottom_bar: PanelContainer
-var bottom_box: VBoxContainer
-var actions: HBoxContainer
+var bottom_row: HBoxContainer
+var back_btn: Button
 var tray_panel: PanelContainer
 var tray_scroll: ScrollContainer
 var tray_box: HBoxContainer
@@ -355,12 +355,13 @@ func _build_bottom() -> void:
 	bottom_bar.offset_right = -24
 	bottom_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	root.add_child(bottom_bar)
-	bottom_box = VBoxContainer.new()
-	bottom_box.add_theme_constant_override("separation", 14)
-	bottom_bar.add_child(bottom_box)
+	bottom_row = HBoxContainer.new()
+	bottom_row.add_theme_constant_override("separation", 16)
+	bottom_bar.add_child(bottom_row)
 	tray_panel = PanelContainer.new()
 	tray_panel.theme_type_variation = "Card"
-	bottom_box.add_child(tray_panel)
+	tray_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_row.add_child(tray_panel)
 	var tv := VBoxContainer.new()
 	tv.add_theme_constant_override("separation", 6)
 	tray_panel.add_child(tv)
@@ -376,32 +377,15 @@ func _build_bottom() -> void:
 	tray_box = HBoxContainer.new()
 	tray_box.add_theme_constant_override("separation", 12)
 	tray_scroll.add_child(tray_box)
-	actions = HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 12)
-	bottom_box.add_child(actions)
-
-func _action(text: String, variation := "") -> Button:
-	var b := Button.new()
-	b.text = text
-	if variation != "":
-		b.theme_type_variation = variation
-	b.custom_minimum_size = Vector2(0, 92)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.clip_text = true
-	b.add_theme_font_size_override("font_size", 28)
-	b.add_theme_color_override("icon_normal_color", fg())
-	b.add_theme_color_override("icon_hover_color", fg())
-	b.add_theme_color_override("icon_pressed_color", fg())
-	actions.add_child(b)
-	return b
+	back_btn = _icon_button("res://icons/chevron_left.svg", 48)
+	back_btn.theme_type_variation = "AccentIconButton"
+	back_btn.tooltip_text = "Back to room"
+	back_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	back_btn.pressed.connect(func(): back_pressed.emit())
+	bottom_row.add_child(back_btn)
 
 func _rebuild_actions() -> void:
-	for c in actions.get_children():
-		actions.remove_child(c)
-		c.queue_free()
-	if mode_shelf:
-		_action("Back to room").pressed.connect(func(): back_pressed.emit())
-	actions.visible = actions.get_child_count() > 0
+	back_btn.visible = mode_shelf
 
 func set_room_mode(room_name: String, subtitle: String, has_multiple: bool) -> void:
 	mode_shelf = false
@@ -436,7 +420,7 @@ func refresh_tray() -> void:
 			continue
 		tray_box.add_child(_make_chip(b, id == placing_id))
 	tray_panel.visible = _drag_tray or mode_shelf or not ids.is_empty()
-	bottom_bar.visible = tray_panel.visible or actions.get_child_count() > 0
+	bottom_bar.visible = tray_panel.visible or back_btn.visible
 	if _drag_tray:
 		tray_hint.text = "Drop here to move the book to the tray"
 	elif ids.is_empty():
