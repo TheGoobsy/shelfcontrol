@@ -637,7 +637,7 @@ func _build_sheet() -> void:
 	sheet_content.add_theme_constant_override("separation", 14)
 	pad.add_child(sheet_content)
 
-var _sheet_scroll_h := 400.0
+var _sheet_max_h := 400.0
 var _kb_h := 0.0
 var _bottom_inset := 0.0
 
@@ -649,9 +649,9 @@ func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
 	var h := get_viewport().get_visible_rect().size.y * height_frac
 	sheet.offset_top = 0
 	sheet.offset_bottom = 0
-	_sheet_scroll_h = h - 140
+	_sheet_max_h = h - 140
 	_kb_h = -1.0
-	_apply_keyboard()
+	_fit_sheet()
 	sheet_scroll.scroll_vertical = 0
 	dimmer.visible = true
 	sheet.visible = true
@@ -660,28 +660,31 @@ func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
 	tw.tween_property(sheet, "modulate:a", 1.0, 0.15)
 	return sheet_content
 
-## On phones the on-screen keyboard slides over the bottom sheet. Lift the sheet by the keyboard
-## height and shrink it so the focused field stays reachable.
-func _apply_keyboard() -> void:
+## Sheets size to their content: no empty space below short menus, a scrollbar for long ones.
+## height_frac from open_sheet is the maximum. On phones the on-screen keyboard slides over the
+## sheet, so the sheet is lifted by the keyboard height and its maximum shrinks accordingly.
+func _fit_sheet() -> void:
 	var win_h := float(DisplayServer.window_get_size().y)
 	var canvas_h := get_viewport().get_visible_rect().size.y
 	var kb := float(DisplayServer.virtual_keyboard_get_height()) * (canvas_h / maxf(1.0, win_h))
-	if absf(kb - _kb_h) < 1.0:
-		return
+	var kb_changed := absf(kb - _kb_h) >= 1.0
 	_kb_h = kb
-	# keep the sheet above the keyboard, or above the gesture bar when there is no keyboard
 	var lift := maxf(kb, _bottom_inset)
-	sheet.offset_bottom = -lift
+	if absf(sheet.offset_bottom + lift) >= 0.5:
+		sheet.offset_bottom = -lift
 	var room := canvas_h - lift - 260.0
-	sheet_scroll.custom_minimum_size = Vector2(0, clampf(_sheet_scroll_h, 160.0, maxf(160.0, room)))
-	if kb > 0.0:
+	var content_h := sheet_content.get_combined_minimum_size().y + 28.0
+	var want := clampf(minf(content_h, _sheet_max_h), 120.0, maxf(120.0, room))
+	if absf(sheet_scroll.custom_minimum_size.y - want) >= 0.5:
+		sheet_scroll.custom_minimum_size = Vector2(0, want)
+	if kb_changed and kb > 0.0:
 		var f := get_viewport().gui_get_focus_owner()
 		if f != null and sheet_scroll.is_ancestor_of(f):
 			(func(): sheet_scroll.ensure_control_visible(f)).call_deferred()
 
 func _process(_delta: float) -> void:
 	if sheet.visible:
-		_apply_keyboard()
+		_fit_sheet()
 
 func close_sheet() -> void:
 	dimmer.visible = false
