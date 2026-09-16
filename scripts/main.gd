@@ -209,6 +209,7 @@ func _fade_to(cb: Callable) -> void:
 	tw.tween_property(fade, "modulate:a", 0.0, 0.3)
 
 func _on_structure_changed() -> void:
+	_prop_focused = false
 	if drag_book:
 		_cancel_drag()
 	_apply_style()
@@ -265,6 +266,7 @@ func _shelf_view(sh: Shelf3D) -> Array:
 func enter_shelf(sh: Shelf3D) -> void:
 	if sh == null:
 		return
+	_prop_focused = false
 	mode = Mode.SHELF
 	active_shelf = sh
 	shelf_zoom = 1.0
@@ -477,11 +479,9 @@ func _on_tap(pos: Vector2) -> void:
 		if sh:
 			enter_shelf(sh)
 			return
-		match room3d.prop_by_body(col):
-			"reading":
-				hud.dialogs.open_reading_list()
-			"archive":
-				hud.dialogs.open_archive()
+		var prop := room3d.prop_by_body(col)
+		if prop != "":
+			_focus_prop(prop)
 		return
 	if active_shelf == null:
 		return
@@ -510,6 +510,41 @@ func _on_tap(pos: Vector2) -> void:
 	else:
 		_last_tap_time = now
 		_last_tap_pos = pos
+
+## Fly the camera to the reading table or archive box, then open its sheet. The sheet covers the
+## lower part of the screen, so the prop is framed in the upper quarter. Closing flies back out.
+var _prop_focused := false
+
+func _focus_prop(prop: String) -> void:
+	var node: Node3D = room3d.table if prop == "reading" else room3d.archive
+	if node == null:
+		return
+	var target := node.global_position + (Vector3(0, 0.45, 0) if prop == "reading" else Vector3(0, 0.12, 0))
+	var toward_center := (Vector3(0, 0, 0.3) - node.global_position)
+	toward_center.y = 0.0
+	toward_center = toward_center.normalized() if toward_center.length() > 0.01 else Vector3(0, 0, 1)
+	# come in from the side the camera is on when that makes sense, else from the room centre
+	var from_cam := (rig.position - node.global_position)
+	from_cam.y = 0.0
+	var side := from_cam.normalized() if from_cam.length() > 0.5 and prop == "reading" else toward_center
+	var eye := target + side * (1.8 if prop == "reading" else 1.7) + Vector3(0, 1.0, 0)
+	# aim below the prop so it sits in the upper part of the screen above the sheet
+	var aim := target - Vector3(0, 0.62, 0)
+	_prop_focused = true
+	rig.go_to(eye, CameraRig.look_basis(eye, aim), 48.0, 0.55)
+	await get_tree().create_timer(0.45).timeout
+	if not _prop_focused or mode != Mode.ROOM:
+		return
+	if prop == "reading":
+		hud.dialogs.open_reading_list()
+	else:
+		hud.dialogs.open_archive()
+
+func on_sheet_closed() -> void:
+	if _prop_focused:
+		_prop_focused = false
+		if mode == Mode.ROOM:
+			rig.go_to(_room_eye(), _room_basis(), ROOM_FOV, 0.55)
 
 func _raycast_collider(pos: Vector2) -> Object:
 	var from := rig.cam.project_ray_origin(pos)
@@ -614,6 +649,8 @@ func _run_shot() -> void:
 			var first: Dictionary = current_room()["shelves"][0]
 			enter_shelf(room3d.shelves[first["id"]])
 			hud.dialogs.open_book_detail(_first_book_id(first))
+		"detail_isbn":
+			hud.dialogs.open_book_detail(Library.sorted_book_ids("title", "Name of the Wind")[0])
 		"add":
 			hud.dialogs.open_add_book()
 		"import":
@@ -676,6 +713,19 @@ func _run_shot() -> void:
 			hud.dialogs.open_reading_list()
 		"archive":
 			hud.dialogs.open_archive()
+		"focus_table", "focus_box":
+			yaw = 0.0 if shot_mode == "focus_table" else -2.5
+			pitch = -0.35
+			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+			for i in 5:
+				await get_tree().process_frame
+			var node: Node3D = room3d.table if shot_mode == "focus_table" else room3d.archive
+			var p := rig.cam.unproject_position(node.global_position + Vector3(0, 0.2, 0))
+			_send_mouse(p, true)
+			await get_tree().process_frame
+			_send_mouse(p, false)
+			for i in 60:
+				await get_tree().process_frame
 		"ghost":
 			# close-up of the row holding the first book that is being read
 			var reading := Library.reading_ids()

@@ -18,6 +18,7 @@ func main() -> Node:
 
 func on_closed() -> void:
 	_search_gen += 1
+	main().on_sheet_closed()
 
 func _bold_label(text: String, size := 30) -> Label:
 	var l := hud.label(text)
@@ -727,7 +728,6 @@ func open_book_detail(id: String) -> void:
 		codes.append("ISBN-10 " + str(b["isbn"]))
 	if not codes.is_empty():
 		var cl := hud.label(" · ".join(PackedStringArray(codes)), "SmallLabel")
-		cl.selection_enabled = true
 		v.add_child(cl)
 	var rating := int(b.get("rating", 0))
 	var avg := float(b.get("avg_rating", 0.0))
@@ -1123,7 +1123,7 @@ func _book_row(id: String) -> Control:
 
 func open_reading_list() -> void:
 	var ids := Library.reading_ids()
-	var c := hud.open_sheet("Reading table · %d" % ids.size(), 0.75)
+	var c := hud.open_sheet("Reading table · %d" % ids.size(), 0.62)
 	if ids.is_empty():
 		c.add_child(hud.label("Nothing on the table yet.", "SubLabel"))
 		c.add_child(hud.label("Open a book and tap “Start reading”, or set its status to Reading. It shows up here and stays in its shelf as a ghost so you know where it belongs.", "MutedLabel"))
@@ -1134,7 +1134,7 @@ func open_reading_list() -> void:
 
 func open_archive() -> void:
 	var ids := Library.archived_ids()
-	var c := hud.open_sheet("Archive box · %d" % ids.size(), 0.75)
+	var c := hud.open_sheet("Archive box · %d" % ids.size(), 0.62)
 	if ids.is_empty():
 		c.add_child(hud.label("The box is empty.", "SubLabel"))
 		c.add_child(hud.label("Archive a book from its detail sheet to take it off the shelves without deleting it. Restoring it puts it back on a free spot.", "MutedLabel"))

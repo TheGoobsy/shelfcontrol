@@ -89,6 +89,8 @@ static func populate() -> void:
 			info["status"] = "archived"
 		if i == 0:
 			info["series"] = "The Kingkiller Chronicle #1"
+			info["isbn13"] = "9780756404741"
+			info["isbn"] = "0756404746"
 			info["tags"] = ["found family", "slow burn", "magic school"]
 			info["description"] = "Told in Kvothe's own voice, this is the tale of the magically gifted young man who grows to be the most notorious wizard his world has ever seen. The intimate narrative of his childhood in a troupe of traveling players, his years spent as a near-feral orphan in a crime-ridden city, his daringly brazen yet successful bid to enter a legendary school of magic, and his life as a fugitive after the murder of a king form a gripping coming-of-age story."
 		var id := Library.add_book(info)
