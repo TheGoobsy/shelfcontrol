@@ -22,6 +22,8 @@ var root: Control
 var top_bar: PanelContainer
 var prev_btn: Button
 var next_btn: Button
+var top_prev: Button
+var top_next: Button
 var title_btn: Button
 var title_lbl: Label
 var sub_lbl: Label
@@ -277,6 +279,14 @@ func _layout() -> void:
 	_bottom_inset = bottom_inset
 	top_bar.offset_top = top_inset + 24
 	top_bar.offset_bottom = top_inset + 24
+	top_bar.offset_left = 24 + 96 + 14
+	top_bar.offset_right = -(24 + 96 + 14)
+	var bar_h := top_bar.get_combined_minimum_size().y
+	var arrow_y := top_inset + 24 + (bar_h - 96.0) / 2.0
+	top_prev.position = Vector2(24, arrow_y)
+	top_prev.size = Vector2(96, 96)
+	top_next.position = Vector2(canvas_size.x - 24 - 96, arrow_y)
+	top_next.size = Vector2(96, 96)
 	bottom_bar.offset_bottom = -(bottom_inset + 24)
 	bottom_bar.offset_right = -(24 + 108 + 16) if mode_shelf else -24
 	back_btn.offset_bottom = -(bottom_inset + 24)
@@ -317,7 +327,14 @@ func _build_top() -> void:
 	sub_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(sub_lbl)
-	# room / shelf navigation: bare chevrons at mid-height on the screen edges
+	# arrow buttons standing left and right of the title panel (positioned in _layout)
+	top_prev = _icon_button("res://icons/chevron_left.svg", 44)
+	top_prev.pressed.connect(func(): prev_pressed.emit())
+	root.add_child(top_prev)
+	top_next = _icon_button("res://icons/chevron_right.svg", 44)
+	top_next.pressed.connect(func(): next_pressed.emit())
+	root.add_child(top_next)
+	# the same navigation again as bare chevrons at mid-height on the screen edges
 	prev_btn = _nav_chevron("res://icons/chevron_left.svg", Control.PRESET_CENTER_LEFT)
 	prev_btn.pressed.connect(func(): prev_pressed.emit())
 	next_btn = _nav_chevron("res://icons/chevron_right.svg", Control.PRESET_CENTER_RIGHT)
@@ -433,6 +450,8 @@ func set_room_mode(room_name: String, subtitle: String, has_multiple: bool) -> v
 	sub_lbl.text = subtitle
 	prev_btn.visible = has_multiple
 	next_btn.visible = has_multiple
+	top_prev.disabled = not has_multiple
+	top_next.disabled = not has_multiple
 	_rebuild_actions()
 	refresh_tray()
 
@@ -442,6 +461,8 @@ func set_shelf_mode(shelf_name: String, subtitle: String, has_multiple: bool) ->
 	sub_lbl.text = subtitle
 	prev_btn.visible = has_multiple
 	next_btn.visible = has_multiple
+	top_prev.disabled = not has_multiple
+	top_next.disabled = not has_multiple
 	_rebuild_actions()
 	refresh_tray()
 
