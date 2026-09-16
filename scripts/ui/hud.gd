@@ -370,6 +370,9 @@ func _build_bottom() -> void:
 	tray_hint = Label.new()
 	tray_hint.theme_type_variation = "SmallLabel"
 	tray_hint.text = "Tray"
+	tray_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tray_hint.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tray_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tv.add_child(tray_hint)
 	tray_scroll = ScrollContainer.new()
 	tray_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -428,6 +431,8 @@ func refresh_tray() -> void:
 		tray_box.add_child(_make_chip(b, id == placing_id))
 	tray_panel.visible = _drag_tray or mode_shelf or not ids.is_empty()
 	bottom_bar.visible = tray_panel.visible
+	# with no books the bar is just the hint; match the floating back button's height
+	bottom_bar.custom_minimum_size = Vector2(0, 108 if ids.is_empty() else 0)
 	if _drag_tray:
 		tray_hint.text = "Drop here to move the book to the tray"
 	elif ids.is_empty():
