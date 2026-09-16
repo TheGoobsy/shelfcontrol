@@ -179,6 +179,17 @@ func wall_transform(wall: int, along: float, depth: float) -> Transform3D:
 			pos = Vector3(-ROOM_W / 2.0 + depth / 2.0, 0.0, -along)
 	return Transform3D(basis, pos)
 
+## Shelves sorted clockwise around the room (north wall left→right, then east, south, west),
+## so "next" always means the neighbouring bookcase rather than creation order.
+func around_room(shelves: Array) -> Array:
+	var out := shelves.duplicate()
+	out.sort_custom(func(a, b):
+		var pa := shelf_transform(int(a["wall"]), int(a["slot"])).origin
+		var pb := shelf_transform(int(b["wall"]), int(b["slot"])).origin
+		# angle measured from the north-west corner so the ring reads north → east → south → west
+		return fposmod(atan2(pa.x, -pa.z) + PI / 4.0, TAU) < fposmod(atan2(pb.x, -pb.z) + PI / 4.0, TAU))
+	return out
+
 func shelf_transform(wall: int, slot: int) -> Transform3D:
 	return wall_transform(wall, slot_offset(wall, slot), SHELF_D)
 

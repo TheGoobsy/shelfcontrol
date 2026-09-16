@@ -26,15 +26,10 @@ func _bold_label(text: String, size := 30) -> Label:
 	l.add_theme_font_size_override("font_size", size)
 	return l
 
-func _card_button(content: Control, min_h: float) -> Button:
-	var b := Button.new()
-	b.theme_type_variation = "CardButton"
-	b.custom_minimum_size = Vector2(0, min_h)
-	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 18)
-	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ignore_mouse(content)
-	b.add_child(content)
-	return b
+const CardRowScript := preload("res://scripts/ui/card_row.gd")
+
+func _card_button(content: Control, min_h: float) -> PanelContainer:
+	return CardRowScript.new(content, min_h)
 
 func _ignore_mouse(c: Node) -> void:
 	for ch in c.get_children():
@@ -522,7 +517,7 @@ func open_room_menu() -> void:
 	if room.is_empty():
 		return
 	var c := hud.open_sheet(str(room["name"]), 0.85)
-	var shelves: Array = room.get("shelves", [])
+	var shelves: Array = Styles.around_room(room.get("shelves", []))
 	c.add_child(hud.label("%d shel%s · %d books" % [shelves.size(), "f" if shelves.size() == 1 else "ves", Library.room_book_count(rid)], "MutedLabel"))
 	for s in shelves:
 		var h := hud.row(14)
@@ -997,7 +992,7 @@ func open_move_picker(id: String) -> void:
 	for room in Library.get_rooms():
 		c.add_child(hud.spacer(6))
 		c.add_child(_bold_label(str(room["name"]), 30))
-		for s in room.get("shelves", []):
+		for s in Styles.around_room(room.get("shelves", [])):
 			var card := PanelContainer.new()
 			card.theme_type_variation = "Card"
 			var v := VBoxContainer.new()

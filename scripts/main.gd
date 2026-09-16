@@ -318,7 +318,7 @@ func exit_shelf() -> void:
 	_update_room_hud()
 
 func _shelf_step(delta: int) -> void:
-	var shelves: Array = current_room().get("shelves", [])
+	var shelves: Array = Styles.around_room(current_room().get("shelves", []))
 	if shelves.size() < 2 or active_shelf == null:
 		return
 	var idx := -1

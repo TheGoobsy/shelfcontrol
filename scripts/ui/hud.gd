@@ -176,9 +176,11 @@ func apply_style(st: Dictionary) -> void:
 	th.set_stylebox("hover", "GhostButton", _flat(softer, 18, Vector2(12, 6)))
 	th.set_stylebox("pressed", "GhostButton", _flat(soft, 18, Vector2(12, 6)))
 
-	th.set_stylebox("normal", "CardButton", _flat(softer, 22, Vector2(22, 18)))
-	th.set_stylebox("hover", "CardButton", _flat(soft, 22, Vector2(22, 18)))
-	th.set_stylebox("pressed", "CardButton", _flat(Color(f.r, f.g, f.b, 0.2), 22, Vector2(22, 18)))
+	# CardButton is the transparent tap layer on top of a CardRow (the Card panel draws the background)
+	th.set_stylebox("normal", "CardButton", _flat(Color(0, 0, 0, 0), 20, Vector2(0, 0)))
+	th.set_stylebox("hover", "CardButton", _flat(softer, 20, Vector2(0, 0)))
+	th.set_stylebox("pressed", "CardButton", _flat(Color(f.r, f.g, f.b, 0.14), 20, Vector2(0, 0)))
+	th.set_stylebox("focus", "CardButton", empty)
 
 	th.set_stylebox("panel", "PanelContainer", _flat(bg(), 30, Vector2(22, 18)))
 	th.set_type_variation("Card", "PanelContainer")
@@ -235,13 +237,17 @@ func apply_style(st: Dictionary) -> void:
 	th.set_color("font_hover_color", "OptionButton", f)
 	th.set_color("font_pressed_color", "OptionButton", f)
 	th.set_color("font_focus_color", "OptionButton", f)
-	th.set_font_size("font_size", "OptionButton", 28)
+	th.set_font_size("font_size", "OptionButton", 30)
+	th.set_constant("h_separation", "OptionButton", 14)
 	var popup_bg := Color(bg().r, bg().g, bg().b, 1.0)
-	th.set_stylebox("panel", "PopupMenu", _flat(popup_bg, 16, Vector2(8, 8), Color(f.r, f.g, f.b, 0.15), 2))
-	th.set_stylebox("hover", "PopupMenu", _flat(Color(a.r, a.g, a.b, 0.3), 10, Vector2(12, 8)))
+	th.set_stylebox("panel", "PopupMenu", _flat(popup_bg, 20, Vector2(12, 14), Color(f.r, f.g, f.b, 0.15), 2))
+	th.set_stylebox("hover", "PopupMenu", _flat(Color(a.r, a.g, a.b, 0.3), 14, Vector2(16, 10)))
 	th.set_color("font_color", "PopupMenu", f)
 	th.set_color("font_hover_color", "PopupMenu", f)
-	th.set_font_size("font_size", "PopupMenu", 28)
+	th.set_font_size("font_size", "PopupMenu", 32)
+	th.set_constant("v_separation", "PopupMenu", 30)
+	th.set_constant("item_start_padding", "PopupMenu", 26)
+	th.set_constant("item_end_padding", "PopupMenu", 26)
 
 	th.set_stylebox("background", "ProgressBar", _flat(soft, 8, Vector2(0, 0)))
 	th.set_stylebox("fill", "ProgressBar", _flat(a, 8, Vector2(0, 0)))
@@ -268,6 +274,7 @@ func _layout() -> void:
 		var safe := DisplayServer.get_display_safe_area()
 		top_inset = maxf(0.0, float(safe.position.y)) * scale_y
 		bottom_inset = maxf(0.0, float(win.y - safe.end.y)) * scale_y
+	_bottom_inset = bottom_inset
 	top_bar.offset_top = top_inset + 24
 	top_bar.offset_bottom = top_inset + 24
 	bottom_bar.offset_bottom = -(bottom_inset + 24)
@@ -619,13 +626,20 @@ func _build_sheet() -> void:
 	sheet_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sheet_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vb.add_child(sheet_scroll)
+	# a margin below the last row so lists never end flush with the sheet edge
+	var pad := MarginContainer.new()
+	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pad.add_theme_constant_override("margin_bottom", 28)
+	pad.add_theme_constant_override("margin_right", 6)
+	sheet_scroll.add_child(pad)
 	sheet_content = VBoxContainer.new()
 	sheet_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sheet_content.add_theme_constant_override("separation", 14)
-	sheet_scroll.add_child(sheet_content)
+	pad.add_child(sheet_content)
 
 var _sheet_scroll_h := 400.0
 var _kb_h := 0.0
+var _bottom_inset := 0.0
 
 func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
 	for c in sheet_content.get_children():
@@ -655,8 +669,10 @@ func _apply_keyboard() -> void:
 	if absf(kb - _kb_h) < 1.0:
 		return
 	_kb_h = kb
-	sheet.offset_bottom = -kb
-	var room := canvas_h - kb - 260.0
+	# keep the sheet above the keyboard, or above the gesture bar when there is no keyboard
+	var lift := maxf(kb, _bottom_inset)
+	sheet.offset_bottom = -lift
+	var room := canvas_h - lift - 260.0
 	sheet_scroll.custom_minimum_size = Vector2(0, clampf(_sheet_scroll_h, 160.0, maxf(160.0, room)))
 	if kb > 0.0:
 		var f := get_viewport().gui_get_focus_owner()
