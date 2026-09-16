@@ -30,6 +30,18 @@ float fbm(highp vec2 p) {
 	return v;
 }
 
+// Band-limited variant (3 octaves) for patterns seen from a distance or used as bump height.
+float fbm3(highp vec2 p) {
+	highp float v = 0.0;
+	highp float a = 0.5;
+	for (int i = 0; i < 3; i++) {
+		v += a * vnoise(p);
+		p *= 2.03;
+		a *= 0.5;
+	}
+	return v;
+}
+
 // Pick a planar projection of a world position based on the dominant normal axis.
 highp vec2 world_uv(highp vec3 p, vec3 n) {
 	vec3 an = abs(n);
@@ -40,4 +52,18 @@ highp vec2 world_uv(highp vec3 p, vec3 n) {
 		return p.zy;
 	}
 	return p.xy;
+}
+
+// Bump mapping from a height value using screen-space derivatives (no tangents needed).
+// n: view-space normal, p: view-space position (VERTEX in fragment), h: height at this pixel.
+vec3 bump_normal(vec3 n, vec3 p, float h, float strength) {
+	vec3 dpdx = dFdx(p);
+	vec3 dpdy = dFdy(p);
+	float dhdx = dFdx(h);
+	float dhdy = dFdy(h);
+	vec3 r1 = cross(dpdy, n);
+	vec3 r2 = cross(n, dpdx);
+	float det = dot(dpdx, r1);
+	vec3 grad = sign(det) * (dhdx * r1 + dhdy * r2);
+	return normalize(abs(det) * n - grad * strength);
 }

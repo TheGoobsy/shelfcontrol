@@ -8,6 +8,7 @@ uniform vec3 color_a : source_color = vec3(0.50, 0.32, 0.16);
 uniform vec3 color_b : source_color = vec3(0.36, 0.21, 0.10);
 uniform float grain_scale = 1.0;
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.55;
+uniform float bump = 0.010;
 instance uniform vec3 box_size = vec3(1.0, 1.0, 1.0);
 
 varying highp vec3 lpos;
@@ -39,12 +40,16 @@ void fragment() {
 	float nb = dot(lnrm, B);
 	float nl = dot(lnrm, L);
 	vec3 base;
+	float h = 0.0;
+	float rough = roughness_val;
 	if (abs(nl) > 0.7) {
 		// end grain: concentric rings around an off-centre pith
 		highp vec2 c = vec2(a, b) - vec2(ha * 0.3, -hb * 0.2);
-		highp float rr = length(c) * 60.0 + fbm(c * 30.0 + seed) * 3.0;
+		highp float rr = length(c) * 60.0 + fbm3(c * 12.0 + seed) * 3.0;
 		float rings = sin(rr) * 0.5 + 0.5;
 		base = mix(color_a, color_b, rings * 0.5 + 0.35) * 0.92;
+		h = rings * 0.2;
+		rough = roughness_val + 0.25;
 	} else {
 		// perimeter coordinate v, continuous across three of the four edges
 		highp float v;
@@ -58,11 +63,15 @@ void fragment() {
 			v = 2.0 * ha + 2.0 * hb + (b + hb);
 		}
 		highp vec2 uv = vec2(u, v + seed * 0.37) * grain_scale;
-		float g = fbm(vec2(uv.x * 1.6, uv.y * 24.0));
-		float rings = sin(uv.y * 42.0 + g * 6.0 + uv.x * 0.8) * 0.5 + 0.5;
-		float streak = fbm(vec2(uv.x * 6.0, uv.y * 90.0)) * 0.25;
+		float g = fbm3(vec2(uv.x * 1.6, uv.y * 10.0));
+		float rings = sin(uv.y * 42.0 + g * 7.0 + uv.x * 0.8) * 0.5 + 0.5;
+		float streak = fbm3(vec2(uv.x * 4.0, uv.y * 20.0)) * 0.22;
 		base = mix(color_a, color_b, rings * 0.42 + g * 0.45 + streak);
+		// dark late-wood rings sit slightly proud and are a touch rougher
+		h = rings * 0.5;
+		rough = roughness_val + (rings - 0.5) * 0.18 + streak * 0.3;
 	}
+	NORMAL = bump_normal(NORMAL, VERTEX, h, bump);
 	ALBEDO = base;
-	ROUGHNESS = roughness_val;
+	ROUGHNESS = clamp(rough, 0.05, 1.0);
 }

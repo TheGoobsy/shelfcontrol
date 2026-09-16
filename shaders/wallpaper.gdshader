@@ -21,13 +21,17 @@ void fragment() {
 	float n = fbm(uv * 6.0);
 	vec3 col = mix(color_a, color_b, s) * (0.94 + 0.12 * n);
 	float rough = 0.85;
+	float h = n * 0.15;
 	if (wainscot_height > 0.0 && wpos.y < wainscot_height) {
 		float g = fbm(vec2(uv.x * 1.5, uv.y * 30.0));
 		col = wainscot_color * (0.85 + 0.3 * g);
 		float rail = step(abs(wpos.y - wainscot_height + 0.04), 0.02);
-		col = mix(col, wainscot_color * 0.6, rail);
-		rough = 0.5;
+		float panel = step(0.47, abs(fract(uv.x / 0.6) - 0.5));
+		col = mix(col, wainscot_color * 0.6, max(rail, panel * 0.6));
+		rough = 0.45 + g * 0.15;
+		h = g * 0.4 + rail * 1.5 - panel * 0.8;
 	}
+	NORMAL = bump_normal(NORMAL, VERTEX, h, 0.03);
 	ALBEDO = col;
 	ROUGHNESS = rough;
 }

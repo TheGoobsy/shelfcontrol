@@ -8,6 +8,7 @@ uniform float brick_w = 0.24;
 uniform float brick_h = 0.075;
 uniform float mortar_w = 0.012;
 uniform float jitter = 0.0;
+uniform float bump = 0.045;
 
 varying highp vec3 wpos;
 varying vec3 wnrm;
@@ -28,8 +29,14 @@ void fragment() {
 	vec3 bcol = mix(brick_a, brick_b, id) * (0.85 + 0.3 * fbm(uv * 30.0));
 	float mx = mortar_w / brick_w;
 	float my = mortar_w / brick_h;
-	float is_mortar = step(bx, mx) + step(by, my);
-	vec3 col = mix(bcol, mortar, clamp(is_mortar, 0.0, 1.0));
-	ALBEDO = col;
-	ROUGHNESS = 0.92;
+	// soft mortar edges so the recess reads as a bevel, not a hard step
+	float mortar_x = 1.0 - smoothstep(mx, mx + 0.03, bx);
+	float mortar_y = 1.0 - smoothstep(my, my + 0.08, by);
+	float is_mortar = clamp(mortar_x + mortar_y, 0.0, 1.0);
+	vec3 col = mix(bcol, mortar, is_mortar);
+	float surface = fbm(uv * 12.0 + id) * 0.4;
+	float h = -is_mortar * 1.0 + surface * (1.0 - is_mortar);
+	NORMAL = bump_normal(NORMAL, VERTEX, h, bump);
+	ALBEDO = col * (0.94 + surface * 0.15 + fbm(uv * 30.0) * 0.08);
+	ROUGHNESS = mix(0.84 + surface * 0.12, 0.97, is_mortar);
 }

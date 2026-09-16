@@ -80,12 +80,17 @@ func _build_lights() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.light_color = style.get("sun", Color(1, 0.9, 0.75))
 	sun.light_energy = float(style.get("sun_energy", 1.2))
-	sun.rotation_degrees = Vector3(-58, 35, 0)
+	sun.rotation_degrees = Vector3(-52, 28, 0)
 	sun.shadow_enabled = true
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	sun.directional_shadow_max_distance = 16.0
-	sun.shadow_bias = 0.03
-	sun.shadow_normal_bias = 1.5
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_split_1 = 0.35
+	sun.directional_shadow_blend_splits = true
+	sun.directional_shadow_max_distance = 11.0
+	sun.directional_shadow_fade_start = 0.9
+	sun.shadow_bias = 0.06
+	sun.shadow_normal_bias = 3.0
+	sun.shadow_opacity = 0.85
+	sun.shadow_blur = 1.5
 	add_child(sun)
 
 func _build_shelves() -> void:
