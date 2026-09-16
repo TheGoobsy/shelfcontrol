@@ -50,6 +50,7 @@ var styles: Dictionary = {
 		"cat_color": Color(0.35, 0.30, 0.28),
 		"rug": {"field": Color(0.36, 0.16, 0.12), "border": Color(0.20, 0.09, 0.07), "accent": Color(0.78, 0.64, 0.42)},
 		"fabric": Color(0.30, 0.22, 0.18),
+		"fabric_spec": {"pbr": "res://textures/lodge/brown_leather", "tile": 0.45, "normal_scale": 0.9, "tint": Color(0.70, 0.60, 0.54), "roughness": 1.0},
 		"pot": Color(0.45, 0.30, 0.22),
 		"ui_bg": Color(0.11, 0.07, 0.05, 0.92), "ui_fg": Color(0.96, 0.91, 0.83), "ui_accent": Color(0.86, 0.55, 0.26), "ui_muted": Color(0.72, 0.64, 0.54),
 	},

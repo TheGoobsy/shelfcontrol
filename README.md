@@ -65,7 +65,7 @@ Screenshot harness (used during development):
 
 ```bash
 godot --path . --resolution 540x1080 -- --demo --mode=shelf --shot=/tmp/shelf.png
-# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
+# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
 # add --style=timber_lodge (or any style id) to render a different style
 # add --night to render with night mode on
 godot --headless --path . -- --demo --apitest
@@ -87,7 +87,7 @@ For a release build, add a release keystore to the preset and use `--export-rele
 
 ## Credits
 
-Timber Lodge uses CC0 textures from [Poly Haven](https://polyhaven.com): *Wood Trunk Wall* (Amal Kumar), *Wood Floor Worn* (Dimitrios Savva), *Brown Planks 09* (Rob Tuytel) and *Dark Wood* (Dario Barresi, Dimitrios Savva, Rico Cilliers). The trunk wall maps are rotated 90° so the timbers lie horizontally.
+Timber Lodge uses CC0 textures from [Poly Haven](https://polyhaven.com): *Wood Trunk Wall* (Amal Kumar), *Wood Floor Worn* (Dimitrios Savva), *Brown Planks 09* (Rob Tuytel), *Dark Wood* (Dario Barresi, Dimitrios Savva, Rico Cilliers) and *Brown Leather* (Rob Tuytel) for the armchair. The reading table is built from the style's shelf wood in every style. The trunk wall maps are rotated 90° so the timbers lie horizontally.
 
 ## Notes
 

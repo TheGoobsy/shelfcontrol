@@ -35,6 +35,33 @@ static func from_spec(spec: Dictionary) -> Material:
 	_cache[key] = m
 	return m
 
+## The board material used by bookcases and wooden furniture, from a style's "shelf" spec.
+static func shelf_wood(style: Dictionary) -> Material:
+	var sh: Dictionary = style.get("shelf", {})
+	var spec := {
+		"shader": "wood",
+		"color_a": sh.get("color_a", Color(0.45, 0.28, 0.14)),
+		"color_b": sh.get("color_b", Color(0.30, 0.18, 0.09)),
+		"roughness": sh.get("roughness", 0.55),
+		"grain_scale": 1.0,
+	}
+	if sh.has("texture"):
+		spec["albedo_tex"] = str(sh["texture"])
+		spec["use_tex"] = 1.0
+		spec["tex_scale"] = float(sh.get("tex_scale", 1.0))
+		spec["tex_tint"] = sh.get("tint", Color.WHITE)
+	return from_spec(spec)
+
+## Upholstery: a photo set when the style has "fabric_spec", else a flat colour.
+static func fabric(style: Dictionary, lighten := 0.0) -> Material:
+	if style.has("fabric_spec"):
+		var spec: Dictionary = (style["fabric_spec"] as Dictionary).duplicate()
+		if lighten > 0.0:
+			spec["tint"] = (spec.get("tint", Color.WHITE) as Color).lightened(lighten)
+		return from_spec(spec)
+	var col: Color = style.get("fabric", Color(0.4, 0.25, 0.18))
+	return std(col.lightened(lighten) if lighten > 0.0 else col, 0.95)
+
 ## Photo-based material from a "<base>_diff.jpg / _nor_gl.jpg / _rough.jpg" set (Poly Haven naming),
 ## projected in world space (triplanar) so it tiles seamlessly across walls, floor and ceiling.
 ## tile = metres per texture repeat.

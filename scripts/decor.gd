@@ -16,7 +16,9 @@ static func _mesh(parent: Node3D, mesh: Mesh, pos: Vector3, mat: Material, rot :
 static func box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material, rot := Vector3.ZERO) -> MeshInstance3D:
 	var bm := BoxMesh.new()
 	bm.size = size
-	return _mesh(parent, bm, pos, mat, rot)
+	var mi := _mesh(parent, bm, pos, mat, rot)
+	mi.set_instance_shader_parameter("box_size", size)  # lets the wood shader run its grain along the board
+	return mi
 
 static func cyl(parent: Node3D, r_top: float, r_bottom: float, h: float, pos: Vector3, mat: Material, rot := Vector3.ZERO) -> MeshInstance3D:
 	var cm := CylinderMesh.new()
@@ -350,9 +352,8 @@ static func floor_lamp(style: Dictionary) -> Node3D:
 
 static func armchair(style: Dictionary) -> Node3D:
 	var root := Node3D.new()
-	var fabric_col: Color = style.get("fabric", Color(0.4, 0.25, 0.18))
-	var fabric := Materials.std(fabric_col, 0.95)
-	var cushion := Materials.std(fabric_col.lightened(0.12), 0.95)
+	var fabric := Materials.fabric(style)
+	var cushion := Materials.fabric(style, 0.12)
 	var leg := Materials.std(Color(0.2, 0.13, 0.08), 0.6)
 	box(root, Vector3(0.66, 0.36, 0.72), Vector3(0, 0.30, 0.04), fabric)
 	box(root, Vector3(0.62, 0.10, 0.62), Vector3(0, 0.53, 0.08), cushion)
@@ -439,14 +440,13 @@ static func _pick_body(root: Node3D, size: Vector3, pos: Vector3, prop: String) 
 ## Low coffee table on the rug. Books being read are stacked on it by Room3D (child "Stack").
 static func reading_table(style: Dictionary) -> Node3D:
 	var root := Node3D.new()
-	var wood := Materials.std(style.get("trim", Color(0.3, 0.18, 0.1)).lightened(0.12), 0.75)
-	var dark := Materials.std(style.get("trim", Color(0.3, 0.18, 0.1)).darkened(0.2), 0.75)
+	var wood := Materials.shelf_wood(style)
 	const TOP_Y := 0.42
 	box(root, Vector3(0.96, 0.035, 0.54), Vector3(0, TOP_Y - 0.0175, 0), wood)
-	box(root, Vector3(0.90, 0.05, 0.48), Vector3(0, TOP_Y - 0.06, 0), dark)
+	box(root, Vector3(0.90, 0.05, 0.48), Vector3(0, TOP_Y - 0.06, 0), wood)
 	for sx in [-0.42, 0.42]:
 		for sz in [-0.21, 0.21]:
-			box(root, Vector3(0.045, TOP_Y - 0.085, 0.045), Vector3(sx, (TOP_Y - 0.085) / 2.0, sz), dark)
+			box(root, Vector3(0.045, TOP_Y - 0.085, 0.045), Vector3(sx, (TOP_Y - 0.085) / 2.0, sz), wood)
 	# a coaster with a mug on one end
 	cyl(root, 0.055, 0.055, 0.006, Vector3(0.36, TOP_Y + 0.003, 0.14), Materials.std(Color(0.35, 0.22, 0.14), 0.9))
 	var mug := Materials.std(Color(0.92, 0.88, 0.80), 0.55)
