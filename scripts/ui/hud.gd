@@ -271,6 +271,8 @@ func _layout() -> void:
 	top_bar.offset_top = top_inset + 24
 	top_bar.offset_bottom = top_inset + 24
 	bottom_bar.offset_bottom = -(bottom_inset + 24)
+	bottom_bar.offset_right = -(24 + 108 + 16) if mode_shelf else -24
+	back_btn.offset_bottom = -(bottom_inset + 24)
 	toast_panel.offset_top = top_inset + 190
 	side_box.offset_top = top_inset + 24 + top_bar.get_combined_minimum_size().y + 18
 
@@ -377,15 +379,20 @@ func _build_bottom() -> void:
 	tray_box = HBoxContainer.new()
 	tray_box.add_theme_constant_override("separation", 12)
 	tray_scroll.add_child(tray_box)
-	back_btn = _icon_button("res://icons/chevron_left.svg", 48)
+	back_btn = _icon_button("res://icons/back.svg", 52)
 	back_btn.theme_type_variation = "AccentIconButton"
+	back_btn.custom_minimum_size = Vector2(108, 108)
 	back_btn.tooltip_text = "Back to room"
-	back_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	back_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	back_btn.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	back_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	back_btn.offset_right = -24
 	back_btn.pressed.connect(func(): back_pressed.emit())
-	bottom_row.add_child(back_btn)
+	root.add_child(back_btn)
 
 func _rebuild_actions() -> void:
 	back_btn.visible = mode_shelf
+	_layout()
 
 func set_room_mode(room_name: String, subtitle: String, has_multiple: bool) -> void:
 	mode_shelf = false
@@ -420,7 +427,7 @@ func refresh_tray() -> void:
 			continue
 		tray_box.add_child(_make_chip(b, id == placing_id))
 	tray_panel.visible = _drag_tray or mode_shelf or not ids.is_empty()
-	bottom_bar.visible = tray_panel.visible or back_btn.visible
+	bottom_bar.visible = tray_panel.visible
 	if _drag_tray:
 		tray_hint.text = "Drop here to move the book to the tray"
 	elif ids.is_empty():
