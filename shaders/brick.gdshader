@@ -9,7 +9,7 @@ uniform float brick_h = 0.075;
 uniform float mortar_w = 0.012;
 uniform float jitter = 0.0;
 
-varying vec3 wpos;
+varying highp vec3 wpos;
 varying vec3 wnrm;
 
 void vertex() {
@@ -18,7 +18,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 uv = world_uv(wpos, wnrm);
+	highp vec2 uv = world_uv(wpos, wnrm);
 	uv += (fbm(uv * 9.0) - 0.5) * jitter;
 	float row = floor(uv.y / brick_h);
 	float offx = mod(row, 2.0) * 0.5 * brick_w + hash21(vec2(row, 9.1)) * brick_w * jitter * 4.0;

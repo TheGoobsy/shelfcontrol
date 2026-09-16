@@ -6,7 +6,7 @@ uniform float noise_amount = 0.06;
 uniform float noise_scale = 4.0;
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.9;
 
-varying vec3 wpos;
+varying highp vec3 wpos;
 varying vec3 wnrm;
 
 void vertex() {
@@ -15,7 +15,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 uv = world_uv(wpos, wnrm);
+	highp vec2 uv = world_uv(wpos, wnrm);
 	float n = fbm(uv * noise_scale);
 	ALBEDO = color * (1.0 - noise_amount + noise_amount * 2.0 * n);
 	ROUGHNESS = roughness_val;

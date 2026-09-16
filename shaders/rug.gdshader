@@ -8,7 +8,7 @@ uniform vec2 rug_size = vec2(3.2, 2.2);
 uniform float border_w = 0.25;
 uniform float pattern_scale = 0.35;
 
-varying vec3 lpos;
+varying highp vec3 lpos;
 varying vec3 lnrm;
 
 void vertex() {
@@ -17,7 +17,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 p = lpos.xz;
+	highp vec2 p = lpos.xz;
 	vec2 e = rug_size * 0.5 - abs(p);
 	float m = min(e.x, e.y);
 	float in_border = step(m, border_w);

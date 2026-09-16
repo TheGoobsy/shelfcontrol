@@ -150,6 +150,17 @@ func apply_style(st: Dictionary) -> void:
 	th.set_stylebox("disabled", "IconButton", _flat(Color(f.r, f.g, f.b, 0.03), 44, Vector2(0, 0)))
 	th.set_font_size("font_size", "IconButton", 46)
 
+	th.set_type_variation("AccentIconButton", "Button")
+	th.set_stylebox("normal", "AccentIconButton", _flat(a, 44, Vector2(0, 0)))
+	th.set_stylebox("hover", "AccentIconButton", _flat(a.lightened(0.08), 44, Vector2(0, 0)))
+	th.set_stylebox("pressed", "AccentIconButton", _flat(a.darkened(0.2), 44, Vector2(0, 0)))
+	th.set_stylebox("disabled", "AccentIconButton", _flat(Color(a.r, a.g, a.b, 0.35), 44, Vector2(0, 0)))
+	th.set_stylebox("focus", "AccentIconButton", empty)
+	th.set_color("icon_normal_color", "AccentIconButton", on_accent())
+	th.set_color("icon_hover_color", "AccentIconButton", on_accent())
+	th.set_color("icon_pressed_color", "AccentIconButton", on_accent())
+	th.set_color("icon_focus_color", "AccentIconButton", on_accent())
+
 	th.set_stylebox("normal", "ChipButton", _flat(softer, 16, Vector2(0, 0)))
 	th.set_stylebox("hover", "ChipButton", _flat(soft, 16, Vector2(0, 0)))
 	th.set_stylebox("pressed", "ChipButton", _flat(soft, 16, Vector2(0, 0)))
@@ -331,9 +342,11 @@ func _build_side() -> void:
 	side_box.offset_right = -24
 	side_box.add_theme_constant_override("separation", 14)
 	root.add_child(side_box)
-	_side_button("res://icons/pencil.svg", "Edit room or shelf", edit_pressed)
-	_side_button("res://icons/list.svg", "All books", books_pressed)
 	_side_button("res://icons/gear.svg", "Settings", settings_pressed)
+	_side_button("res://icons/list.svg", "All books", books_pressed)
+	_side_button("res://icons/pencil.svg", "Edit room or shelf", edit_pressed)
+	var add := _side_button("res://icons/plus.svg", "Add a book", add_book_pressed)
+	add.theme_type_variation = "AccentIconButton"
 
 func _build_bottom() -> void:
 	bottom_bar = PanelContainer.new()
@@ -387,15 +400,8 @@ func _rebuild_actions() -> void:
 		actions.remove_child(c)
 		c.queue_free()
 	if mode_shelf:
-		var back := _action("Back to room")
-		back.icon = load("res://icons/chevron_left.svg")
-		back.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		back.add_theme_constant_override("icon_max_width", 30)
-		back.pressed.connect(func(): back_pressed.emit())
-		_action("+ Book", "AccentButton").pressed.connect(func(): add_book_pressed.emit())
-	else:
-		_action("+ Book", "AccentButton").pressed.connect(func(): add_book_pressed.emit())
-		_action("Import Goodreads").pressed.connect(func(): import_pressed.emit())
+		_action("Back to room").pressed.connect(func(): back_pressed.emit())
+	actions.visible = actions.get_child_count() > 0
 
 func set_room_mode(room_name: String, subtitle: String, has_multiple: bool) -> void:
 	mode_shelf = false
@@ -430,6 +436,7 @@ func refresh_tray() -> void:
 			continue
 		tray_box.add_child(_make_chip(b, id == placing_id))
 	tray_panel.visible = _drag_tray or mode_shelf or not ids.is_empty()
+	bottom_bar.visible = tray_panel.visible or actions.get_child_count() > 0
 	if _drag_tray:
 		tray_hint.text = "Drop here to move the book to the tray"
 	elif ids.is_empty():

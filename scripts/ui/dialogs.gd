@@ -464,6 +464,9 @@ func open_settings() -> void:
 	c.add_child(_bold_label("Data", 26))
 	var stats := hud.label("%d books · %d rooms · covers cached in the app's private storage." % [Library.book_count(), Library.room_count()], "SubLabel")
 	c.add_child(stats)
+	var imp := hud.button("Import from Goodreads…", "AccentButton")
+	imp.pressed.connect(open_import)
+	c.add_child(imp)
 	var refetch := hud.button("Fetch missing covers again")
 	refetch.pressed.connect(func():
 		BookAPI.request_missing_covers()

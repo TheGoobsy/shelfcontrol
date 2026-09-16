@@ -10,9 +10,9 @@ uniform float grain_scale = 1.0;
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.55;
 instance uniform vec3 box_size = vec3(1.0, 1.0, 1.0);
 
-varying vec3 lpos;
+varying highp vec3 lpos;
 varying vec3 lnrm;
-varying vec3 seed_pos;
+varying highp vec3 seed_pos;
 
 void vertex() {
 	lpos = VERTEX;
@@ -31,23 +31,23 @@ void fragment() {
 	} else {
 		L = vec3(0.0, 0.0, 1.0); A = vec3(1.0, 0.0, 0.0); B = vec3(0.0, 1.0, 0.0); ha = box_size.x * 0.5; hb = box_size.y * 0.5;
 	}
-	float seed = hash21(seed_pos.xz * 7.3 + seed_pos.yy * 3.1) * 40.0;
-	float u = dot(lpos, L) + seed;
-	float a = dot(lpos, A);
-	float b = dot(lpos, B);
+	highp float seed = hash21(seed_pos.xz * 7.3 + seed_pos.yy * 3.1) * 6.0;
+	highp float u = dot(lpos, L) + seed;
+	highp float a = dot(lpos, A);
+	highp float b = dot(lpos, B);
 	float na = dot(lnrm, A);
 	float nb = dot(lnrm, B);
 	float nl = dot(lnrm, L);
 	vec3 base;
 	if (abs(nl) > 0.7) {
 		// end grain: concentric rings around an off-centre pith
-		vec2 c = vec2(a, b) - vec2(ha * 0.3, -hb * 0.2);
-		float rr = length(c) * 60.0 + fbm(c * 30.0 + seed) * 3.0;
+		highp vec2 c = vec2(a, b) - vec2(ha * 0.3, -hb * 0.2);
+		highp float rr = length(c) * 60.0 + fbm(c * 30.0 + seed) * 3.0;
 		float rings = sin(rr) * 0.5 + 0.5;
 		base = mix(color_a, color_b, rings * 0.5 + 0.35) * 0.92;
 	} else {
 		// perimeter coordinate v, continuous across three of the four edges
-		float v;
+		highp float v;
 		if (nb > 0.7) {
 			v = a;
 		} else if (na > 0.7) {
@@ -57,7 +57,7 @@ void fragment() {
 		} else {
 			v = 2.0 * ha + 2.0 * hb + (b + hb);
 		}
-		vec2 uv = vec2(u, v + seed * 0.37) * grain_scale;
+		highp vec2 uv = vec2(u, v + seed * 0.37) * grain_scale;
 		float g = fbm(vec2(uv.x * 1.6, uv.y * 24.0));
 		float rings = sin(uv.y * 42.0 + g * 6.0 + uv.x * 0.8) * 0.5 + 0.5;
 		float streak = fbm(vec2(uv.x * 6.0, uv.y * 90.0)) * 0.25;

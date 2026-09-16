@@ -9,8 +9,9 @@ A 3D virtual library for Android, built with Godot 4.7. Walk through styled room
 - **Move between shelves** by dragging a book down into the tray, then opening another shelf and tapping a spot. Or use *Move to…* in the book detail sheet to pick any room, shelf and row.
 - **Add books** via search (Google Books first, Open Library as fallback), by ISBN, or manually. Covers are downloaded and cached; the average cover colour becomes the spine colour. Results already in the library are marked.
 - **Metadata** per book: title, authors, series, year, pages, publisher, language, genres, tags, description, average rating, your rating, reading status, date read and Goodreads review. All editable in the detail sheet.
+- **Add books** via the accent plus icon in the side column.
 - **All Books overview** (list icon, top right): filter by title, author, genre, tag or status; sort by title, author, newest or rating; tap a row for details.
-- **Goodreads import** from the CSV export (My Books → Import and export → Export Library). Filter by exclusive shelf, skip duplicates, covers are fetched in the background. Books are auto-placed; new shelves and rooms are created when a room fills up.
+- **Goodreads import** (Settings → Import from Goodreads) from the CSV export (My Books → Import and export → Export Library). Filter by exclusive shelf, skip duplicates, covers are fetched in the background. Books are auto-placed; new shelves and rooms are created when a room fills up.
 - **Cover-out display**: any book can stand with its cover facing out.
 - **Four styles**: Cozy Cabin (log walls, fireplace, rug), Modern Loft (brick, concrete, oak), Dark Academia (green wallpaper, walnut wainscot, candlelight), Scandi Bright. Each style textures the walls, floor, ceiling and shelves, tints the UI, and places decor (plants, rug, armchair, lamps, window or a fireplace with animated flames, and a sleeping cat on the rug).
 - **Room management** (pencil icon, top right): rename rooms and shelves, add shelves to free wall spots, change the library style, add or delete rooms. In a shelf view the pencil edits that shelf.

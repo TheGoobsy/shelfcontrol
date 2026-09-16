@@ -7,7 +7,7 @@ uniform float stripe_w = 0.12;
 uniform float wainscot_height = 0.0;
 uniform vec3 wainscot_color : source_color = vec3(0.22, 0.13, 0.08);
 
-varying vec3 wpos;
+varying highp vec3 wpos;
 varying vec3 wnrm;
 
 void vertex() {
@@ -16,7 +16,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 uv = world_uv(wpos, wnrm);
+	highp vec2 uv = world_uv(wpos, wnrm);
 	float s = step(0.5, fract(uv.x / stripe_w));
 	float n = fbm(uv * 6.0);
 	vec3 col = mix(color_a, color_b, s) * (0.94 + 0.12 * n);

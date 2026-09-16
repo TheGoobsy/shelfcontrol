@@ -8,7 +8,7 @@ uniform float plank_length = 1.6;
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.6;
 uniform float uv_scale = 1.0;
 
-varying vec3 wpos;
+varying highp vec3 wpos;
 varying vec3 wnrm;
 
 void vertex() {
@@ -17,7 +17,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 uv = world_uv(wpos, wnrm) * uv_scale;
+	highp vec2 uv = world_uv(wpos, wnrm) * uv_scale;
 	float row = floor(uv.y / plank_width);
 	float off = hash21(vec2(row, 3.7)) * plank_length;
 	float col = floor((uv.x + off) / plank_length);

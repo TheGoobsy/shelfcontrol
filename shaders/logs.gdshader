@@ -5,7 +5,7 @@ uniform vec3 color_a : source_color = vec3(0.58, 0.38, 0.21);
 uniform vec3 color_b : source_color = vec3(0.38, 0.23, 0.12);
 uniform float log_height = 0.3;
 
-varying vec3 wpos;
+varying highp vec3 wpos;
 varying vec3 wnrm;
 
 void vertex() {
@@ -14,7 +14,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 uv = world_uv(wpos, wnrm);
+	highp vec2 uv = world_uv(wpos, wnrm);
 	float fy = fract(uv.y / log_height);
 	float c = (fy - 0.5) * 2.0;
 	float round_shade = sqrt(max(0.0, 1.0 - c * c));
