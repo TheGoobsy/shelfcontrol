@@ -388,7 +388,12 @@ static func pendant(style: Dictionary) -> Node3D:
 	light.light_energy = float(style.get("lamp_energy", 2.0)) * 0.8
 	light.omni_range = 9.0
 	light.omni_attenuation = 1.1
-	light.shadow_enabled = false
+	light.shadow_enabled = true
+	light.omni_shadow_mode = OmniLight3D.SHADOW_CUBE
+	light.shadow_bias = 0.06
+	light.shadow_normal_bias = 2.0
+	light.shadow_blur = 1.2
+	light.shadow_opacity = 0.9
 	light.position = Vector3(0, -0.72, 0)
 	root.add_child(light)
 	return root

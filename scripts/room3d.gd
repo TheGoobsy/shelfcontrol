@@ -87,10 +87,10 @@ func _build_lights() -> void:
 	sun.directional_shadow_blend_splits = true
 	sun.directional_shadow_max_distance = 11.0
 	sun.directional_shadow_fade_start = 0.9
-	sun.shadow_bias = 0.06
-	sun.shadow_normal_bias = 3.0
-	sun.shadow_opacity = 0.85
-	sun.shadow_blur = 1.5
+	sun.shadow_bias = 0.035
+	sun.shadow_normal_bias = 2.0
+	sun.shadow_opacity = 0.9
+	sun.shadow_blur = 1.2
 	add_child(sun)
 
 func _build_shelves() -> void:
