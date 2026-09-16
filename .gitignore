@@ -1,0 +1,8 @@
+# Godot
+.godot/
+*.import.tmp
+
+# Build output
+build/*.apk
+build/*.idsig
+build/*.aab
