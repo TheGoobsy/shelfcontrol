@@ -12,6 +12,7 @@ const DEFAULTS := {
 	"spine_top_down": true,     # spine titles read top→bottom (false = bottom→top)
 	"google_api_key": "",
 	"night_mode": "off",        # off | on | auto (19:00–07:00)
+	"language": "system",       # system | en | de
 }
 
 var data: Dictionary = {}
@@ -26,6 +27,7 @@ func _ready() -> void:
 				for k in parsed.keys():
 					if DEFAULTS.has(k):
 						data[k] = parsed[k]
+	apply_language()
 
 func get_value(key: String) -> Variant:
 	return data.get(key, DEFAULTS.get(key))
@@ -51,3 +53,10 @@ func is_night() -> bool:
 		var h: int = Time.get_time_dict_from_system()["hour"]
 		return h >= 19 or h < 7
 	return false
+
+## Applies the language setting to the TranslationServer. Call after loading and on change.
+func apply_language() -> void:
+	var lang := str(get_value("language"))
+	if lang == "system":
+		lang = OS.get_locale_language()
+	TranslationServer.set_locale("de" if lang.begins_with("de") else "en")

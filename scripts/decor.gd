@@ -238,14 +238,14 @@ static func cat(style: Dictionary) -> Node3D:
 	# front paws tucked under the chin
 	sphere(body, 0.026, Vector3(0.17, 0.03, 0.10), fur_light, Vector3(1.5, 0.7, 1.0))
 	sphere(body, 0.026, Vector3(0.175, 0.03, 0.045), fur_light, Vector3(1.5, 0.7, 1.0))
-	# tail: a smooth tube curling around the front of the body
+	# tail: starts at the rump (-x, opposite the head), sweeps round the +z side and ends by the paws
 	var pts: Array = []
 	var n := 26
 	for i in n:
 		var t := float(i) / float(n - 1)
-		var ang := -0.35 - t * 2.6
-		var r := 0.15 + t * 0.10
-		pts.append(Vector3(cos(ang) * r, 0.035 + (1.0 - t) * 0.03, sin(ang) * r * 0.9))
+		var ang := PI - t * 2.3
+		var r := 0.13 + t * 0.12
+		pts.append(Vector3(cos(ang) * r, 0.055 - t * 0.02, sin(ang) * r * 0.9))
 	tube(body, pts, 0.032, 0.018, fur)
 	sphere(body, 0.019, pts[n - 1], fur_dark)
 	return root

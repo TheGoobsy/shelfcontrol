@@ -129,6 +129,9 @@ func _parse_args() -> void:
 			shot_style = a.trim_prefix("--style=")
 		elif a == "--night":
 			Settings.data["night_mode"] = "on"
+		elif a.begins_with("--lang="):
+			Settings.data["language"] = a.trim_prefix("--lang=")
+			Settings.apply_language()
 		elif a == "--apitest":
 			_run_api_test.call_deferred()
 		elif a.begins_with("--csvtest="):
@@ -189,13 +192,13 @@ func _update_room_hud() -> void:
 	var room := current_room()
 	var shelves: Array = room.get("shelves", [])
 	var n_books := Library.room_book_count(str(room.get("id", "")))
-	var sub := "%d shel%s · %d book%s" % [shelves.size(), "f" if shelves.size() == 1 else "ves", n_books, "" if n_books == 1 else "s"]
+	var sub := (tr("1 shelf") if shelves.size() == 1 else tr("%d shelves") % shelves.size()) + " · " + (tr("1 book") if n_books == 1 else tr("%d books") % n_books)
 	if shelves.is_empty():
-		sub = "No shelves yet · tap Room… to add one"
+		sub = tr("No shelves yet · tap the pencil to add one")
 	elif n_books == 0:
-		sub += " · tap a shelf to open it"
+		sub += tr(" · tap a shelf to open it")
 	if Library.room_count() > 1:
-		sub = "Room %d of %d · " % [room_index + 1, Library.room_count()] + sub
+		sub = tr("Room %d of %d") % [room_index + 1, Library.room_count()] + " · " + sub
 	hud.set_room_mode(str(room.get("name", "Room")), sub, Library.room_count() > 1)
 
 func _room_basis() -> Basis:
@@ -317,9 +320,9 @@ func _update_shelf_hud() -> void:
 		return
 	var s := Library.get_shelf(active_shelf.shelf_id)
 	var n := Library.shelf_book_count(active_shelf.shelf_id)
-	var sub := "%s · %d book%s · drag to rearrange" % [str(current_room().get("name", "")), n, "" if n == 1 else "s"]
+	var sub := str(current_room().get("name", "")) + " · " + (tr("1 book") if n == 1 else tr("%d books") % n) + tr(" · drag to rearrange")
 	if n == 0:
-		sub = "%s · empty · tap + Book or pick from the tray" % str(current_room().get("name", ""))
+		sub = str(current_room().get("name", "")) + tr(" · empty · tap + or pick from the tray")
 	var shelves: Array = current_room().get("shelves", [])
 	hud.set_shelf_mode(str(s.get("name", "Shelf")), sub, shelves.size() > 1)
 
@@ -520,9 +523,9 @@ func _on_tap(pos: Vector2) -> void:
 		var i := active_shelf.index_at_local_x(r, L.x)
 		if Library.place(pid, active_shelf.shelf_id, r, i):
 			hud.set_placing("")
-			hud.toast("Placed on row %d" % Library.row_number(r))
+			hud.toast(tr("Placed on row %d") % Library.row_number(r))
 		else:
-			hud.toast("Not enough space on row %d" % Library.row_number(r))
+			hud.toast(tr("Not enough space on row %d") % Library.row_number(r))
 		return
 	if press_book != "":
 		hud.dialogs.open_book_detail(press_book)
@@ -645,7 +648,7 @@ func _end_book_drag(_pos: Vector2) -> void:
 	else:
 		active_shelf.layout(true)
 		if not drag_fits:
-			hud.toast("Not enough space on row %d" % Library.row_number(drag_row))
+			hud.toast(tr("Not enough space on row %d") % Library.row_number(drag_row))
 	b.rotation = Vector3.ZERO
 
 func _cancel_drag() -> void:

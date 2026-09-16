@@ -179,6 +179,58 @@ func apply_style(st: Dictionary) -> void:
 	th.set_stylebox("hover", "ChipButton", _flat(soft, 16, Vector2(0, 0)))
 	th.set_stylebox("pressed", "ChipButton", _flat(soft, 16, Vector2(0, 0)))
 
+	# action tiles (icon above label) and segmented chips
+	for v in ["Tile", "AccentTile", "SegOn", "SegOff", "Link", "DangerLink"]:
+		th.set_type_variation(v, "Button")
+	th.set_stylebox("normal", "Tile", _flat(softer, 20, Vector2(10, 12)))
+	th.set_stylebox("hover", "Tile", _flat(soft, 20, Vector2(10, 12)))
+	th.set_stylebox("pressed", "Tile", _flat(Color(f.r, f.g, f.b, 0.2), 20, Vector2(10, 12)))
+	th.set_stylebox("disabled", "Tile", _flat(Color(f.r, f.g, f.b, 0.03), 20, Vector2(10, 12)))
+	th.set_font_size("font_size", "Tile", 23)
+	th.set_constant("icon_max_width", "Tile", 40)
+	th.set_constant("h_separation", "Tile", 6)
+	th.set_color("icon_normal_color", "Tile", f)
+	th.set_color("icon_hover_color", "Tile", f)
+	th.set_color("icon_pressed_color", "Tile", f)
+	th.set_color("icon_disabled_color", "Tile", Color(f.r, f.g, f.b, 0.3))
+	th.set_stylebox("normal", "AccentTile", _flat(a, 20, Vector2(10, 12)))
+	th.set_stylebox("hover", "AccentTile", _flat(a.lightened(0.08), 20, Vector2(10, 12)))
+	th.set_stylebox("pressed", "AccentTile", _flat(a.darkened(0.2), 20, Vector2(10, 12)))
+	th.set_font_size("font_size", "AccentTile", 23)
+	th.set_font("font", "AccentTile", sans_bold)
+	th.set_constant("h_separation", "AccentTile", 6)
+	th.set_color("font_color", "AccentTile", on_accent())
+	th.set_color("font_hover_color", "AccentTile", on_accent())
+	th.set_color("font_pressed_color", "AccentTile", on_accent())
+	th.set_color("icon_normal_color", "AccentTile", on_accent())
+	th.set_color("icon_hover_color", "AccentTile", on_accent())
+	th.set_color("icon_pressed_color", "AccentTile", on_accent())
+	th.set_stylebox("normal", "SegOff", _flat(softer, 40, Vector2(22, 8)))
+	th.set_stylebox("hover", "SegOff", _flat(soft, 40, Vector2(22, 8)))
+	th.set_stylebox("pressed", "SegOff", _flat(soft, 40, Vector2(22, 8)))
+	th.set_font_size("font_size", "SegOff", 26)
+	th.set_stylebox("normal", "SegOn", _flat(a, 40, Vector2(22, 8)))
+	th.set_stylebox("hover", "SegOn", _flat(a, 40, Vector2(22, 8)))
+	th.set_stylebox("pressed", "SegOn", _flat(a, 40, Vector2(22, 8)))
+	th.set_font_size("font_size", "SegOn", 26)
+	th.set_font("font", "SegOn", sans_bold)
+	th.set_color("font_color", "SegOn", on_accent())
+	th.set_color("font_hover_color", "SegOn", on_accent())
+	th.set_color("font_pressed_color", "SegOn", on_accent())
+	th.set_stylebox("normal", "Link", _flat(Color(0, 0, 0, 0), 12, Vector2(10, 4)))
+	th.set_stylebox("hover", "Link", _flat(softer, 12, Vector2(10, 4)))
+	th.set_stylebox("pressed", "Link", _flat(soft, 12, Vector2(10, 4)))
+	th.set_font_size("font_size", "Link", 26)
+	th.set_color("font_color", "Link", mu)
+	th.set_color("font_hover_color", "Link", f)
+	th.set_color("font_pressed_color", "Link", f)
+	th.set_stylebox("normal", "DangerLink", _flat(Color(0, 0, 0, 0), 12, Vector2(10, 4)))
+	th.set_stylebox("hover", "DangerLink", _flat(Color(0.72, 0.22, 0.2, 0.15), 12, Vector2(10, 4)))
+	th.set_stylebox("pressed", "DangerLink", _flat(Color(0.72, 0.22, 0.2, 0.3), 12, Vector2(10, 4)))
+	th.set_font_size("font_size", "DangerLink", 26)
+	th.set_color("font_color", "DangerLink", Color(0.90, 0.42, 0.38))
+	th.set_color("font_hover_color", "DangerLink", Color(0.95, 0.5, 0.45))
+	th.set_color("font_pressed_color", "DangerLink", Color(0.95, 0.5, 0.45))
 	th.set_stylebox("normal", "DangerButton", _flat(Color(0.72, 0.22, 0.20)))
 	th.set_stylebox("hover", "DangerButton", _flat(Color(0.78, 0.26, 0.24)))
 	th.set_stylebox("pressed", "DangerButton", _flat(Color(0.55, 0.16, 0.15)))
@@ -203,8 +255,11 @@ func apply_style(st: Dictionary) -> void:
 	th.set_stylebox("panel", "AccentCard", _flat(Color(a.r, a.g, a.b, 0.18), 20, Vector2(20, 16), a, 3))
 
 	th.set_color("font_color", "Label", f)
-	for v in ["TitleLabel", "SubLabel", "HeadLabel", "SmallLabel", "MutedLabel"]:
+	for v in ["TitleLabel", "SubLabel", "HeadLabel", "SmallLabel", "MutedLabel", "SectionLabel"]:
 		th.set_type_variation(v, "Label")
+	th.set_font("font", "SectionLabel", sans_bold)
+	th.set_font_size("font_size", "SectionLabel", 24)
+	th.set_color("font_color", "SectionLabel", a)
 	th.set_font("font", "TitleLabel", serif_bold)
 	th.set_font_size("font_size", "TitleLabel", 48)
 	th.set_font_size("font_size", "SubLabel", 25)
@@ -431,7 +486,7 @@ func _build_bottom() -> void:
 	tray_panel.add_child(tv)
 	tray_hint = Label.new()
 	tray_hint.theme_type_variation = "SmallLabel"
-	tray_hint.text = "Tray"
+	tray_hint.text = tr("Tray")
 	tray_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	tray_hint.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tray_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -447,7 +502,7 @@ func _build_bottom() -> void:
 	back_btn = _icon_button("res://icons/back.svg", 52)
 	back_btn.theme_type_variation = "AccentIconButton"
 	back_btn.custom_minimum_size = Vector2(108, 108)
-	back_btn.tooltip_text = "Back to room"
+	back_btn.tooltip_text = tr("Back to room")
 	back_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	back_btn.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	back_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -500,15 +555,15 @@ func refresh_tray() -> void:
 	# with no books the bar is just the hint; match the floating back button's height
 	bottom_bar.custom_minimum_size = Vector2(0, 108 if ids.is_empty() else 0)
 	if _drag_tray:
-		tray_hint.text = "Drop here to move the book to the tray"
+		tray_hint.text = tr("Drop here to move the book to the tray")
 	elif ids.is_empty():
-		tray_hint.text = "Tray · drag a book down here to carry it to another shelf"
+		tray_hint.text = tr("Tray · drag a book down here to carry it to another shelf")
 	elif placing_id != "":
-		tray_hint.text = "Tap a spot on the shelf to place the selected book"
+		tray_hint.text = tr("Tap a spot on the shelf to place the selected book")
 	elif mode_shelf:
-		tray_hint.text = "Tray · %d book%s · tap one, then tap the shelf" % [ids.size(), "" if ids.size() == 1 else "s"]
+		tray_hint.text = tr("Tray · %s · tap one, then tap the shelf") % ((tr("1 book") if ids.size() == 1 else tr("%d books") % ids.size()))
 	else:
-		tray_hint.text = "Tray · %d book%s waiting · open a shelf to place them" % [ids.size(), "" if ids.size() == 1 else "s"]
+		tray_hint.text = tr("Tray · %s waiting · open a shelf to place them") % ((tr("1 book") if ids.size() == 1 else tr("%d books") % ids.size()))
 	tray_scroll.visible = not ids.is_empty()
 
 func make_cover_widget(b: Dictionary, size: Vector2, font_size := 20) -> Control:
@@ -615,6 +670,7 @@ func _build_toast() -> void:
 	toast_panel.add_child(toast_lbl)
 
 func toast(text: String, seconds := 2.6) -> void:
+	text = tr(text)
 	toast_lbl.text = text
 	toast_lbl.add_theme_color_override("font_color", fg())
 	if _toast_tween != null and _toast_tween.is_valid():
@@ -681,7 +737,7 @@ func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
 	for c in sheet_content.get_children():
 		sheet_content.remove_child(c)
 		c.queue_free()
-	sheet_title.text = title
+	sheet_title.text = tr(title)
 	var h := get_viewport().get_visible_rect().size.y * height_frac
 	sheet.offset_top = 0
 	sheet.offset_bottom = 0
@@ -734,7 +790,7 @@ func is_dialog_open() -> bool:
 
 func label(text: String, variation := "") -> Label:
 	var l := Label.new()
-	l.text = text
+	l.text = tr(text)
 	if variation != "":
 		l.theme_type_variation = variation
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -742,11 +798,104 @@ func label(text: String, variation := "") -> Label:
 
 func button(text: String, variation := "", min_h := 88.0) -> Button:
 	var b := Button.new()
-	b.text = text
+	b.text = tr(text)
 	if variation != "":
 		b.theme_type_variation = variation
 	b.custom_minimum_size = Vector2(0, min_h)
 	return b
+
+## A titled card grouping related controls. Returns the VBox to fill.
+func section(parent: Control, title: String, hint := "") -> VBoxContainer:
+	var card := PanelContainer.new()
+	card.theme_type_variation = "Card"
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	if title != "":
+		var t := label(title, "SectionLabel")
+		v.add_child(t)
+	if hint != "":
+		v.add_child(label(hint, "SubLabel"))
+	card.add_child(v)
+	parent.add_child(card)
+	return v
+
+## Grid of icon-over-label action tiles. actions: [{"label", "icon", "cb", "accent"(bool), "disabled"(bool)}]
+func tiles(parent: Control, actions: Array, columns := 4) -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = columns
+	g.add_theme_constant_override("h_separation", 10)
+	g.add_theme_constant_override("v_separation", 10)
+	for a in actions:
+		var b := Button.new()
+		b.theme_type_variation = "AccentTile" if bool(a.get("accent", false)) else "Tile"
+		b.text = tr(str(a.get("label", "")))
+		if a.has("icon"):
+			b.icon = load("res://icons/%s.svg" % str(a["icon"]))
+			b.expand_icon = true
+			b.add_theme_constant_override("icon_max_width", 40)
+			b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.clip_text = true
+		b.custom_minimum_size = Vector2(0, 124)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.disabled = bool(a.get("disabled", false))
+		b.focus_mode = Control.FOCUS_NONE
+		if a.has("cb"):
+			b.pressed.connect(a["cb"])
+		g.add_child(b)
+	parent.add_child(g)
+	return g
+
+## Row of exclusive chips. options: [[key, label], ...]; cb(key). Returns the container.
+func segmented(parent: Control, options: Array, current: Variant, cb: Callable, wrap := false) -> Container:
+	var box: Container = HFlowContainer.new() if wrap else HBoxContainer.new()
+	box.add_theme_constant_override("h_separation" if wrap else "separation", 8)
+	if wrap:
+		box.add_theme_constant_override("v_separation", 8)
+	var buttons: Array = []
+	for o in options:
+		var b := Button.new()
+		b.text = tr(str(o[1]))
+		b.toggle_mode = true
+		b.button_pressed = o[0] == current
+		b.theme_type_variation = "SegOn" if b.button_pressed else "SegOff"
+		b.custom_minimum_size = Vector2(0, 76)
+		b.focus_mode = Control.FOCUS_NONE
+		if not wrap:
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		buttons.append(b)
+		var key = o[0]
+		b.pressed.connect(func():
+			for other in buttons:
+				other.button_pressed = other == b
+				other.theme_type_variation = "SegOn" if other == b else "SegOff"
+			cb.call(key))
+		box.add_child(b)
+	parent.add_child(box)
+	return box
+
+## Quiet text action for secondary or destructive things (no big bar).
+func link(parent: Control, text: String, cb: Callable, danger := false) -> Button:
+	var b := Button.new()
+	b.text = tr(text)
+	b.theme_type_variation = "DangerLink" if danger else "Link"
+	b.custom_minimum_size = Vector2(0, 64)
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(cb)
+	parent.add_child(b)
+	return b
+
+## Horizontal row of quiet links, centred.
+func links(parent: Control, items: Array) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 26)
+	for it in items:
+		link(h, str(it[0]), it[1], bool(it[2]) if it.size() > 2 else false)
+	parent.add_child(h)
+	return h
 
 func row(separation := 12) -> HBoxContainer:
 	var h := HBoxContainer.new()

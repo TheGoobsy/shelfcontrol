@@ -392,7 +392,8 @@ const STATUS_LABELS := {"": "", "read": "Read", "currently-reading": "Reading", 
 const STATUS_KEYS := ["", "read", "currently-reading", "to-read", "archived"]
 
 func status_label(book: Dictionary) -> String:
-	return STATUS_LABELS.get(str(book.get("status", "")), str(book.get("status", "")).capitalize())
+	var raw: String = STATUS_LABELS.get(str(book.get("status", "")), str(book.get("status", "")).capitalize())
+	return tr(raw) if raw != "" else ""
 
 ## Case-insensitive match against title, authors, genres, tags, series, status, year.
 func book_matches(book: Dictionary, query: String) -> bool:
@@ -675,7 +676,7 @@ func auto_place(id: String, prefer_room_id := "", allow_create := true, quiet :=
 			_quiet_place(id, sid, SHELF_ROWS - 1, 0, quiet)
 			return {"shelf": sid, "row": SHELF_ROWS - 1, "room": r["id"], "created_shelf": true}
 	# new room
-	var rid := add_room("Library %d" % (data["rooms"].size() + 1), not quiet)
+	var rid := add_room(tr("Library %d") % (data["rooms"].size() + 1), not quiet)
 	var nsid := add_shelf(rid, 0, 1, not quiet)
 	_quiet_place(id, nsid, SHELF_ROWS - 1, 0, quiet)
 	return {"shelf": nsid, "row": SHELF_ROWS - 1, "room": rid, "created_room": true}
@@ -702,12 +703,12 @@ func location_label(loc: Dictionary, book_id := "") -> String:
 	if loc.has("shelf"):
 		var s := get_shelf(loc["shelf"])
 		var r := get_shelf_room(loc["shelf"])
-		return "%s · %s · row %d" % [r.get("name", "?"), s.get("name", "?"), row_number(int(loc.get("row", 0)))]
+		return "%s · %s · " % [r.get("name", "?"), s.get("name", "?")] + tr("row %d") % row_number(int(loc.get("row", 0)))
 	if loc.has("tray"):
-		return "Tray"
+		return tr("Tray")
 	if book_id != "" and str(get_book(book_id).get("status", "")) == "archived":
-		return "Archive box"
-	return "Nowhere"
+		return tr("Archive box")
+	return tr("Nowhere")
 
 ## Books with a given status, sorted by title.
 func ids_with_status(status: String) -> Array:

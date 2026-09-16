@@ -20,6 +20,8 @@ A 3D virtual library for Android, built with Godot 4.7. Walk through styled room
 - **Room types** (per room, pencil icon → Room type): Living room (the style's own furniture), Office (writing desk with banker's lamp, swivel chair, globe), Bedroom (bed, nightstand lamp, rug) and Fantasy library (candelabras, lectern with an open tome, glowing crystal ball, candle chandelier). The style still decides materials and colours.
 - **Room management** (pencil icon, top right): rename rooms and shelves, add shelves to free wall spots, change the room type or the library style, add or delete rooms. In a shelf view the pencil edits that shelf.
 - **Night mode** (Settings → Scene): off, on, or automatic from 19:00 to 07:00. Starry sky and moon in the window, faint moonlight, lamps and fire carry the room.
+- **Menus** are bottom sheets built from a few shared parts: titled section cards, icon tile grids for actions, chip rows for exclusive choices (room type, status, night mode, filters), and quiet text links for rare or destructive actions. Sheets size to their content and lift above the keyboard.
+- **Languages**: English and German (Settings → Language: System / English / Deutsch). Strings live in `translations/ui.csv` (English text as key); Godot imports it into `.translation` files listed in `project.godot`.
 - **Settings** (gear icon, top right): invert horizontal/vertical look, invert shelf panning, look sensitivity, spine text direction, optional Google Books API key, re-fetch covers, reset. Stored in `user://settings.json`.
 
 Everything is stored locally in `user://library.json` with covers in `user://covers/`.
@@ -46,6 +48,8 @@ scripts/
   demo_data.gd           Sample library for --demo runs
   ui/hud.gd              Theme, top/bottom bars, tray, toasts, bottom sheets
   ui/dialogs.gd          Add / import / style / room / shelf / detail / move / settings dialogs
+  ui/card_row.gd         Tappable card row that sizes to its content
+translations/ui.csv      English + German UI strings (keys = English)
 icons/                   SVG icons for the side buttons
 shaders/                 Procedural surfaces: planks, logs, wood, brick, plaster, wallpaper, rug, fire, sky glass
 textures/lodge/          Poly Haven texture sets (diffuse / normal / roughness) for the Timber Lodge style
@@ -68,7 +72,7 @@ Screenshot harness (used during development):
 godot --path . --resolution 540x1080 -- --demo --mode=shelf --shot=/tmp/shelf.png
 # modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, window, door, door_go, attic, attic_n, box, focus_table, focus_box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
 # add --style=timber_lodge (or any style id) to render a different style
-# add --night to render with night mode on
+# add --night to render with night mode on, --lang=de for German
 godot --headless --path . -- --demo --apitest
 godot --headless --path . -- --demo --csvtest=/path/to/goodreads_library_export.csv
 ```

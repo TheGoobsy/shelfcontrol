@@ -50,11 +50,24 @@ func _ignore_mouse(c: Node) -> void:
 
 # ---------------------------------------------------------------- add book
 
+
 func open_add_book() -> void:
 	var c := hud.open_sheet("Add a book", 0.88)
+	var search_box := VBoxContainer.new()
+	search_box.add_theme_constant_override("separation", 12)
+	var manual_box := VBoxContainer.new()
+	manual_box.add_theme_constant_override("separation", 12)
+	manual_box.visible = false
+	hud.segmented(c, [["search", "Search online"], ["manual", "Enter by hand"]], "search", func(k):
+		search_box.visible = k == "search"
+		manual_box.visible = k == "manual"
+		if k == "manual" and manual_box.get_child_count() == 0:
+			_manual_form(manual_box))
+	c.add_child(search_box)
+	c.add_child(manual_box)
 	var r := hud.row()
 	var field := LineEdit.new()
-	field.placeholder_text = "Title, author or ISBN"
+	field.placeholder_text = tr("Title, author or ISBN")
 	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	field.custom_minimum_size = Vector2(0, 88)
 	field.clear_button_enabled = true
@@ -62,14 +75,12 @@ func open_add_book() -> void:
 	var go := hud.button("Search", "AccentButton")
 	go.custom_minimum_size = Vector2(190, 88)
 	r.add_child(go)
-	c.add_child(r)
+	search_box.add_child(r)
 	var status := hud.label("Searches Google Books, then Open Library. New books go to the current room.", "MutedLabel")
-	c.add_child(status)
+	search_box.add_child(status)
 	var results := VBoxContainer.new()
 	results.add_theme_constant_override("separation", 10)
-	c.add_child(results)
-	var manual := hud.button("Add manually instead")
-	c.add_child(manual)
+	search_box.add_child(results)
 
 	var do_search := func() -> void:
 		var q := field.text.strip_edges()
@@ -77,7 +88,7 @@ func open_add_book() -> void:
 			return
 		_search_gen += 1
 		var gen := _search_gen
-		status.text = "Searching…"
+		status.text = tr("Searching…")
 		for ch in results.get_children():
 			ch.queue_free()
 		var list: Array = []
@@ -91,16 +102,13 @@ func open_add_book() -> void:
 		if gen != _search_gen or not hud.is_dialog_open():
 			return
 		if list.is_empty():
-			status.text = "No results. Check the spelling or your connection."
+			status.text = tr("No results. Check the spelling or your connection.")
 			return
-		status.text = "%d result%s · tap Add" % [list.size(), "" if list.size() == 1 else "s"]
+		status.text = tr("1 result · tap Add") if list.size() == 1 else tr("%d results · tap Add") % list.size()
 		for info in list:
 			results.add_child(_result_row(info))
 	go.pressed.connect(do_search)
 	field.text_submitted.connect(func(_t): do_search.call())
-	manual.pressed.connect(func():
-		manual.visible = false
-		_manual_form(results))
 	field.grab_focus()
 
 func _result_row(info: Dictionary) -> Control:
@@ -132,7 +140,7 @@ func _result_row(info: Dictionary) -> Control:
 	if str(info.get("year", "")) != "":
 		meta.append(str(info["year"]))
 	if int(info.get("pages", 0)) > 0:
-		meta.append("%d pages" % int(info["pages"]))
+		meta.append(tr("%d pages") % int(info["pages"]))
 	var meta_lbl := hud.label(" · ".join(PackedStringArray(meta)), "SubLabel")
 	meta_lbl.max_lines_visible = 2
 	meta_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -143,12 +151,12 @@ func _result_row(info: Dictionary) -> Control:
 	add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	add.add_theme_font_size_override("font_size", 26)
 	if _existing_id(info) != "":
-		add.text = "In library"
+		add.text = tr("In library")
 		add.theme_type_variation = ""
 		add.disabled = true
 	add.pressed.connect(func():
 		_add_info(info)
-		add.text = "Added"
+		add.text = tr("Added")
 		add.theme_type_variation = ""
 		add.disabled = true)
 	h.add_child(add)
@@ -194,19 +202,19 @@ func _add_info(info: Dictionary) -> void:
 	var id := Library.add_book(info)
 	var loc := Library.auto_place(id, main().current_room_id(), true, false, main().active_shelf_id())
 	BookAPI.request_cover(id)
-	hud.toast("Added “%s” to %s" % [str(info.get("title", "")), Library.location_label(loc)])
+	hud.toast(tr("Added “%s” to %s") % [str(info.get("title", "")), Library.location_label(loc)])
 
 func _manual_form(parent: VBoxContainer) -> void:
 	for ch in parent.get_children():
 		ch.queue_free()
 	var title := LineEdit.new()
-	title.placeholder_text = "Title"
+	title.placeholder_text = tr("Title")
 	title.custom_minimum_size = Vector2(0, 84)
 	var author := LineEdit.new()
-	author.placeholder_text = "Author"
+	author.placeholder_text = tr("Author")
 	author.custom_minimum_size = Vector2(0, 84)
 	var pages := LineEdit.new()
-	pages.placeholder_text = "Pages (optional)"
+	pages.placeholder_text = tr("Pages (optional)")
 	pages.custom_minimum_size = Vector2(0, 84)
 	pages.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
 	parent.add_child(title)
@@ -224,39 +232,43 @@ func _manual_form(parent: VBoxContainer) -> void:
 
 # ---------------------------------------------------------------- import
 
+
 func open_import() -> void:
-	var c := hud.open_sheet("Import from Goodreads", 0.88)
-	c.add_child(hud.label("On goodreads.com open My Books to Import and export to Export Library, download the CSV, then choose it here.", "MutedLabel"))
-	var r := hud.row()
-	var inc := hud.label("Include:")
-	inc.autowrap_mode = TextServer.AUTOWRAP_OFF
-	inc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	r.add_child(inc)
-	var opt := OptionButton.new()
-	opt.custom_minimum_size = Vector2(0, 84)
-	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	opt.add_item("All books")
-	opt.set_item_metadata(0, "")
-	opt.add_item("Read")
-	opt.set_item_metadata(1, "read")
-	opt.add_item("Currently reading")
-	opt.set_item_metadata(2, "currently-reading")
-	opt.add_item("Want to read")
-	opt.set_item_metadata(3, "to-read")
-	r.add_child(opt)
-	c.add_child(r)
+	var c := hud.open_sheet("Import from Goodreads", 0.9)
+	c.add_child(hud.label("On goodreads.com open My Books → Import and export → Export Library, download the CSV, then choose it here.", "MutedLabel"))
+	var opt_box := hud.section(c, "Which books")
+	var state := {"shelf": "", "skip": true, "faceout": true}
+	hud.segmented(opt_box, [["", "All"], ["read", "Read"], ["currently-reading", "Reading"], ["to-read", "Want to read"]], "", func(k): state["shelf"] = k, true)
 	var skip := CheckBox.new()
-	skip.text = "Skip books already in my library"
+	skip.text = tr("Skip books already in my library")
 	skip.button_pressed = true
-	c.add_child(skip)
+	skip.toggled.connect(func(on: bool): state["skip"] = on)
+	opt_box.add_child(skip)
 	var faceout := CheckBox.new()
-	faceout.text = "Turn some covers to face out"
+	faceout.text = tr("Turn some covers to face out")
 	faceout.button_pressed = true
-	c.add_child(faceout)
-	var pick := hud.button("Choose CSV file…", "AccentButton")
-	c.add_child(pick)
-	var paste := hud.button("Paste CSV text instead")
-	c.add_child(paste)
+	faceout.toggled.connect(func(on: bool): state["faceout"] = on)
+	opt_box.add_child(faceout)
+	var src := hud.section(c, "Source")
+	var paste_box := VBoxContainer.new()
+	paste_box.add_theme_constant_override("separation", 10)
+	paste_box.visible = false
+	hud.tiles(src, [
+		{"label": "Choose CSV file", "icon": "download", "accent": true, "cb": func():
+			_pick_file(func(path: String):
+				_import_status.text = tr("Reading %s…") % path.get_file()
+				_run_import(GoodreadsImport.parse_file(path), state.duplicate()))},
+		{"label": "Paste CSV text", "icon": "pencil", "cb": func(): paste_box.visible = not paste_box.visible},
+	], 2)
+	src.add_child(paste_box)
+	var te := TextEdit.new()
+	te.placeholder_text = tr("Paste the CSV contents here")
+	te.custom_minimum_size = Vector2(0, 320)
+	te.wrap_mode = TextEdit.LINE_WRAPPING_NONE
+	paste_box.add_child(te)
+	var go := hud.button("Import pasted text", "AccentButton")
+	go.pressed.connect(func(): _run_import(GoodreadsImport.parse_text(te.text), state.duplicate()))
+	paste_box.add_child(go)
 	_import_status = hud.label("", "MutedLabel")
 	c.add_child(_import_status)
 	_import_progress = ProgressBar.new()
@@ -264,25 +276,6 @@ func open_import() -> void:
 	_import_progress.show_percentage = false
 	_import_progress.visible = false
 	c.add_child(_import_progress)
-	var opts := func() -> Dictionary:
-		return {"shelf": str(opt.get_item_metadata(opt.selected)), "skip": skip.button_pressed, "faceout": faceout.button_pressed}
-	pick.pressed.connect(func():
-		_pick_file(func(path: String):
-			_import_status.text = "Reading %s…" % path.get_file()
-			_run_import(GoodreadsImport.parse_file(path), opts.call())))
-	paste.pressed.connect(func():
-		paste.visible = false
-		var te := TextEdit.new()
-		te.placeholder_text = "Paste the CSV contents here"
-		te.custom_minimum_size = Vector2(0, 360)
-		te.wrap_mode = TextEdit.LINE_WRAPPING_NONE
-		c.add_child(te)
-		c.move_child(te, paste.get_index() + 1)
-		var go := hud.button("Import pasted text", "AccentButton")
-		c.add_child(go)
-		c.move_child(go, te.get_index() + 1)
-		go.pressed.connect(func():
-			_run_import(GoodreadsImport.parse_text(te.text), opts.call())))
 
 func _pick_file(cb: Callable) -> void:
 	_file_cb = cb
@@ -302,7 +295,7 @@ func _pick_file(cb: Callable) -> void:
 
 func _run_import(list: Array, opts: Dictionary) -> void:
 	if list.is_empty():
-		_import_status.text = "Could not read any books from that file. Is it a Goodreads export?"
+		_import_status.text = tr("Could not read any books from that file. Is it a Goodreads export?")
 		return
 	var filter_shelf := str(opts.get("shelf", ""))
 	var skip_dupes := bool(opts.get("skip", true))
@@ -331,15 +324,15 @@ func _run_import(list: Array, opts: Dictionary) -> void:
 		added += 1
 		i += 1
 		if i % 25 == 0:
-			_import_status.text = "Importing… %d books" % added
+			_import_status.text = tr("Importing… %d books") % added
 			await main().get_tree().process_frame
 	Library.no_save = false
 	Library.notify_bulk_change()
 	Library.save()
 	if added == 0:
-		_import_status.text = "Nothing new to import (%d already in your library)." % skipped
+		_import_status.text = tr("Nothing new to import (%d already in your library).") % skipped
 		return
-	_import_status.text = "Imported %d books (%d skipped). Fetching covers in the background…" % [added, skipped]
+	_import_status.text = tr("Imported %d books (%d skipped). Fetching covers in the background…") % [added, skipped]
 	_import_progress.visible = true
 	_import_progress.value = 0
 	for id in new_ids:
@@ -353,41 +346,50 @@ func _on_cover_progress(done: int, total: int) -> void:
 		return
 	_import_progress.value = 100.0 * done / total
 	if done >= total:
-		_import_status.text = "Done. Covers fetched for your new books."
+		_import_status.text = tr("Done. Covers fetched for your new books.")
 	else:
-		_import_status.text = "Fetching covers… %d / %d" % [done, total]
+		_import_status.text = tr("Fetching covers… %d / %d") % [done, total]
 
 # ---------------------------------------------------------------- style
 
+
 func open_style() -> void:
-	var c := hud.open_sheet("Library style", 0.72)
+	var c := hud.open_sheet("Library style", 0.8)
+	c.add_child(hud.label("Walls, floor, shelves and colours for the whole library. Furniture is chosen per room (Room type).", "MutedLabel"))
 	var current := Library.get_style_id()
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 12)
+	g.add_theme_constant_override("v_separation", 12)
 	for id in Styles.ids():
 		var st: Dictionary = Styles.get_style(id)
-		var h := hud.row(18)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 8)
 		var sw := HBoxContainer.new()
 		sw.add_theme_constant_override("separation", 4)
-		sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		for col in [_spec_color(st.get("wall", {})), _spec_color(st.get("floor", {})), st.get("shelf", {}).get("color_a", Color.GRAY), st.get("ui_accent", Color.WHITE)]:
 			var cr := ColorRect.new()
 			cr.color = col
-			cr.custom_minimum_size = Vector2(44, 96)
+			cr.custom_minimum_size = Vector2(0, 48)
+			cr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			sw.add_child(cr)
-		h.add_child(sw)
-		var v := VBoxContainer.new()
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		v.add_theme_constant_override("separation", 2)
-		v.add_child(_bold_label(str(st["name"]) + ("   (current)" if id == current else ""), 32))
-		v.add_child(hud.label(str(st.get("blurb", "")), "SubLabel"))
-		h.add_child(v)
-		var b := _card_button(h, 150)
+		v.add_child(sw)
+		v.add_child(_bold_label(tr(str(st["name"])), 28))
+		var bl := hud.label(str(st.get("blurb", "")), "SubLabel")
+		bl.max_lines_visible = 3
+		bl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		v.add_child(bl)
+		var b := _card_button(v, 200)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if id == current:
+			b.theme_type_variation = "AccentCard"
 		var sid := str(id)
 		b.pressed.connect(func():
 			Library.set_style(sid)
 			hud.close_sheet()
-			hud.toast("Style: %s" % str(st["name"])))
-		c.add_child(b)
+			hud.toast(tr("Style: %s") % tr(str(st["name"]))))
+		g.add_child(b)
+	c.add_child(g)
 
 func _spec_color(spec: Dictionary) -> Color:
 	if spec.has("pbr"):
@@ -400,225 +402,182 @@ func _spec_color(spec: Dictionary) -> Color:
 
 # ---------------------------------------------------------------- settings
 
+
 func _toggle(parent: Control, text: String, hint: String, key: String) -> void:
-	var card := PanelContainer.new()
-	card.theme_type_variation = "Card"
 	var h := hud.row(14)
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	v.add_theme_constant_override("separation", 2)
-	v.add_child(_bold_label(text, 29))
+	v.add_child(_bold_label(text, 28))
 	v.add_child(hud.label(hint, "SubLabel"))
 	h.add_child(v)
 	var cb := Button.new()
 	cb.toggle_mode = true
 	cb.button_pressed = bool(Settings.get_value(key))
-	cb.text = "On" if cb.button_pressed else "Off"
-	cb.theme_type_variation = "AccentButton" if cb.button_pressed else ""
+	cb.text = tr("On") if cb.button_pressed else tr("Off")
+	cb.theme_type_variation = "SegOn" if cb.button_pressed else "SegOff"
 	cb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	cb.custom_minimum_size = Vector2(130, 80)
+	cb.custom_minimum_size = Vector2(120, 72)
+	cb.focus_mode = Control.FOCUS_NONE
 	cb.toggled.connect(func(on: bool):
 		Settings.set_value(key, on)
-		cb.text = "On" if on else "Off"
-		cb.theme_type_variation = "AccentButton" if on else "")
+		cb.text = tr("On") if on else tr("Off")
+		cb.theme_type_variation = "SegOn" if on else "SegOff")
 	h.add_child(cb)
-	card.add_child(h)
-	parent.add_child(card)
+	parent.add_child(h)
+
 
 func open_settings() -> void:
-	var c := hud.open_sheet("Settings", 0.88)
-	c.add_child(_bold_label("Camera", 26))
-	_toggle(c, "Invert horizontal look", "Room view: swipe right to turn left, like grabbing the room.", "invert_look_x")
-	_toggle(c, "Invert vertical look", "Room view: swipe down to look up.", "invert_look_y")
-	_toggle(c, "Invert shelf panning", "Zoomed-in shelf: swipe moves the camera instead of the shelf.", "invert_pan")
-	var sens_card := PanelContainer.new()
-	sens_card.theme_type_variation = "Card"
-	var sv := VBoxContainer.new()
-	sv.add_theme_constant_override("separation", 6)
-	var sens_lbl := _bold_label("Look sensitivity  %d%%" % int(float(Settings.get_value("look_sensitivity")) * 100.0), 29)
-	sv.add_child(sens_lbl)
+	var c := hud.open_sheet("Settings", 0.9)
+	var cam := hud.section(c, "Camera")
+	_toggle(cam, "Invert horizontal look", "Room view: swipe right to turn left, like grabbing the room.", "invert_look_x")
+	_toggle(cam, "Invert vertical look", "Room view: swipe down to look up.", "invert_look_y")
+	_toggle(cam, "Invert shelf panning", "Zoomed-in shelf: swipe moves the camera instead of the shelf.", "invert_pan")
+	var sens_lbl := _bold_label(tr("Look sensitivity  %d%%") % int(float(Settings.get_value("look_sensitivity")) * 100.0), 28)
+	cam.add_child(sens_lbl)
 	var slider := HSlider.new()
 	slider.min_value = 0.4
 	slider.max_value = 2.0
 	slider.step = 0.1
 	slider.value = float(Settings.get_value("look_sensitivity"))
-	slider.custom_minimum_size = Vector2(0, 70)
+	slider.custom_minimum_size = Vector2(0, 60)
 	slider.value_changed.connect(func(v: float):
 		Settings.set_value("look_sensitivity", v)
-		sens_lbl.text = "Look sensitivity  %d%%" % int(v * 100.0))
-	sv.add_child(slider)
-	sens_card.add_child(sv)
-	c.add_child(sens_card)
+		sens_lbl.text = tr("Look sensitivity  %d%%") % int(v * 100.0))
+	cam.add_child(slider)
 
-	c.add_child(hud.spacer(6))
-	c.add_child(_bold_label("Scene", 26))
-	var night_card := PanelContainer.new()
-	night_card.theme_type_variation = "Card"
-	var nr := hud.row(14)
-	var nv := VBoxContainer.new()
-	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	nv.add_theme_constant_override("separation", 2)
-	nv.add_child(_bold_label("Night mode", 29))
-	nv.add_child(hud.label("Dark sky outside, moonlight, lamps and fire carry the room.", "SubLabel"))
-	nr.add_child(nv)
-	var night_opt := OptionButton.new()
-	night_opt.custom_minimum_size = Vector2(250, 80)
-	night_opt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var night_keys := ["off", "on", "auto"]
-	for i in night_keys.size():
-		night_opt.add_item(["Off", "On", "Auto (19–07)"][i])
-		if night_keys[i] == str(Settings.get_value("night_mode")):
-			night_opt.selected = i
-	night_opt.item_selected.connect(func(i: int): Settings.set_value("night_mode", night_keys[i]))
-	nr.add_child(night_opt)
-	night_card.add_child(nr)
-	c.add_child(night_card)
+	var scene := hud.section(c, "Scene")
+	scene.add_child(_bold_label("Night mode", 28))
+	scene.add_child(hud.label("Dark sky outside, moonlight, lamps and fire carry the room.", "SubLabel"))
+	hud.segmented(scene, [["off", "Off"], ["on", "On"], ["auto", "Auto (19–07)"]], str(Settings.get_value("night_mode")), func(k): Settings.set_value("night_mode", k))
 
-	c.add_child(hud.spacer(6))
-	c.add_child(_bold_label("Books", 26))
-	_toggle(c, "Spine titles read top to bottom", "Off: titles read bottom to top, as on many European books.", "spine_top_down")
-	var key_card := PanelContainer.new()
-	key_card.theme_type_variation = "Card"
-	var kv := VBoxContainer.new()
-	kv.add_theme_constant_override("separation", 6)
-	kv.add_child(_bold_label("Google Books API key (optional)", 29))
-	kv.add_child(hud.label("Without a key, search falls back to Open Library once Google's shared quota is used up.", "SubLabel"))
+	var lang := hud.section(c, "Language")
+	hud.segmented(lang, [["system", "System"], ["en", "English"], ["de", "Deutsch"]], str(Settings.get_value("language")), func(k):
+		Settings.set_value("language", k)
+		Settings.apply_language()
+		main()._on_structure_changed()
+		open_settings())
+
+	var books := hud.section(c, "Books")
+	_toggle(books, "Spine titles read top to bottom", "Off: titles read bottom to top, as on many European books.", "spine_top_down")
+	books.add_child(_bold_label("Google Books API key (optional)", 28))
+	books.add_child(hud.label("Without a key, search falls back to Open Library once Google's shared quota is used up.", "SubLabel"))
 	var key_field := LineEdit.new()
 	key_field.text = str(Settings.get_value("google_api_key"))
 	key_field.placeholder_text = "AIza…"
-	key_field.custom_minimum_size = Vector2(0, 80)
+	key_field.custom_minimum_size = Vector2(0, 76)
 	key_field.text_changed.connect(func(t: String): Settings.set_value("google_api_key", t.strip_edges()))
-	kv.add_child(key_field)
-	key_card.add_child(kv)
-	c.add_child(key_card)
+	books.add_child(key_field)
 
-	c.add_child(hud.spacer(6))
-	c.add_child(_bold_label("Data", 26))
-	var stats := hud.label("%d books · %d rooms · covers cached in the app's private storage." % [Library.book_count(), Library.room_count()], "SubLabel")
-	c.add_child(stats)
-	var imp := hud.button("Import from Goodreads…", "AccentButton")
-	imp.pressed.connect(open_import)
-	c.add_child(imp)
-	var refetch := hud.button("Fetch missing covers again")
-	refetch.pressed.connect(func():
-		BookAPI.request_missing_covers()
-		hud.toast("Looking for covers in the background"))
-	c.add_child(refetch)
-	var reset_settings := hud.button("Reset settings to defaults")
-	reset_settings.pressed.connect(func():
-		Settings.reset()
-		open_settings())
-	c.add_child(reset_settings)
-	var wipe := hud.button("Delete all books and rooms", "DangerButton")
-	wipe.pressed.connect(func():
-		confirm("Delete everything?", "All %d books, every room and shelf are removed. Settings are kept. This cannot be undone." % Library.book_count(), "Delete all", func():
-			Library.reset_all()
-			hud.toast("Library reset")))
-	c.add_child(wipe)
-	c.add_child(hud.spacer(6))
-	c.add_child(hud.label("Shelf Control 0.1.0 · Godot %s" % Engine.get_version_info()["string"], "SubLabel"))
+	var data := hud.section(c, "Data", tr("%d books · %d rooms · covers cached in the app's private storage.") % [Library.book_count(), Library.room_count()])
+	hud.tiles(data, [
+		{"label": "Import from Goodreads", "icon": "download", "accent": true, "cb": open_import},
+		{"label": "Fetch missing covers", "icon": "refresh", "cb": func():
+			BookAPI.request_missing_covers()
+			hud.toast("Looking for covers in the background")},
+	], 2)
+	hud.links(c, [
+		["Reset settings", func():
+			Settings.reset()
+			Settings.apply_language()
+			open_settings()],
+		["Delete all books and rooms", func():
+			confirm("Delete everything?", tr("All %d books, every room and shelf are removed. Settings are kept. This cannot be undone.") % Library.book_count(), "Delete all", func():
+				Library.reset_all()
+				hud.toast("Library reset")), true],
+	])
+	var ver := hud.label("Shelf Control 0.1.0 · Godot %s" % Engine.get_version_info()["string"], "SubLabel")
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	c.add_child(ver)
 
 # ---------------------------------------------------------------- room menu
+
 
 func open_room_menu() -> void:
 	var rid: String = main().current_room_id()
 	var room := Library.get_room(rid)
 	if room.is_empty():
 		return
-	var c := hud.open_sheet(str(room["name"]), 0.85)
+	var c := hud.open_sheet(str(room["name"]), 0.9)
 	var shelves: Array = Styles.around_room(room.get("shelves", []))
-	c.add_child(hud.label("%d shel%s · %d books" % [shelves.size(), "f" if shelves.size() == 1 else "ves", Library.room_book_count(rid)], "MutedLabel"))
-	for s in shelves:
+	var n_books := Library.room_book_count(rid)
+	var summary := (tr("1 shelf") if shelves.size() == 1 else tr("%d shelves") % shelves.size()) + " · " + (tr("1 book") if n_books == 1 else tr("%d books") % n_books)
+	c.add_child(hud.label(summary, "MutedLabel"))
+
+	c.add_child(hud.label("Shelves", "SectionLabel"))
+	for sh in shelves:
 		var h := hud.row(14)
 		var v := VBoxContainer.new()
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		v.add_theme_constant_override("separation", 2)
-		v.add_child(_bold_label(str(s["name"]), 30))
-		v.add_child(hud.label("%s wall · spot %d · %d books" % [Styles.WALL_NAMES[int(s["wall"])], int(s["slot"]) + 1, Library.shelf_book_count(s["id"])], "SubLabel"))
+		v.add_child(_bold_label(str(sh["name"]), 29))
+		var nb := Library.shelf_book_count(sh["id"])
+		v.add_child(hud.label(tr("%s wall · spot %d") % [tr(Styles.WALL_NAMES[int(sh["wall"])]), int(sh["slot"]) + 1] + " · " + (tr("1 book") if nb == 1 else tr("%d books") % nb), "SubLabel"))
 		h.add_child(v)
 		h.add_child(_chevron())
-		var b := _card_button(h, 120)
-		var sid := str(s["id"])
+		var b := _card_button(h, 104)
+		var sid := str(sh["id"])
 		b.pressed.connect(func():
 			hud.close_sheet()
 			main().enter_shelf_by_id(sid))
 		c.add_child(b)
 	var doors: Array = room.get("doors", [])
-	if not doors.is_empty():
-		var parts: Array = []
-		for d in doors:
-			parts.append("%s wall → %s" % [Styles.WALL_NAMES[int(d["wall"])], str(Library.get_room(str(d["to"])).get("name", "?"))])
-		c.add_child(hud.label("Doors: " + " · ".join(PackedStringArray(parts)) + " (those spots stay free of shelves)", "SubLabel"))
-	var add_shelf := hud.button("+ Add a shelf", "AccentButton")
-	add_shelf.pressed.connect(func(): _add_shelf_picker(rid))
-	c.add_child(add_shelf)
-	var type_btn := hud.button("Room type · %s" % str(Styles.room_type(str(room.get("type", "living")))["name"]))
-	type_btn.pressed.connect(func(): open_room_type(rid))
-	c.add_child(type_btn)
-	var style_btn := hud.button("Change library style · %s" % str(Styles.get_style(Library.get_style_id())["name"]))
-	style_btn.pressed.connect(open_style)
-	c.add_child(style_btn)
-	var rename := hud.button("Rename room")
-	rename.pressed.connect(func():
-		prompt("Rename room", str(room["name"]), "Room name", func(t: String): Library.rename_room(rid, t)))
-	c.add_child(rename)
-	var new_room := hud.button("+ New room")
-	new_room.pressed.connect(func():
-		prompt("New room", "", "e.g. Study", func(t: String):
-			var nrid := Library.add_room(t)
-			Library.add_shelf(nrid, 0, 1)
-			main().go_to_room_id(nrid)))
-	c.add_child(new_room)
-	c.add_child(hud.spacer(10))
-	var del := hud.button("Delete this room", "DangerButton")
-	del.pressed.connect(func():
-		confirm("Delete “%s”?" % str(room["name"]), "Its shelves are removed and all %d books move to the tray." % Library.room_book_count(rid), "Delete room", func():
-			Library.remove_room(rid)
-			hud.toast("Room deleted · books are in the tray")))
-	c.add_child(del)
+	var door_parts: Array = []
+	for d in doors:
+		door_parts.append(tr("%s wall → %s") % [tr(Styles.WALL_NAMES[int(d["wall"])]), str(Library.get_room(str(d["to"])).get("name", "?"))])
+	if not door_parts.is_empty():
+		c.add_child(hud.label(tr("Doors: ") + " · ".join(PackedStringArray(door_parts)), "SubLabel"))
 
-## Furniture set for one room; the library style (materials, colours) stays the same.
-func open_room_type(rid: String) -> void:
-	var room := Library.get_room(rid)
-	var c := hud.open_sheet("Room type · %s" % str(room.get("name", "")), 0.7)
-	c.add_child(hud.label("The style sets walls, floor and shelves for the whole library. The room type picks the furniture in this room.", "MutedLabel"))
-	var current := str(room.get("type", "living"))
-	for id in Styles.room_type_ids():
-		var rt: Dictionary = Styles.room_type(id)
-		var v := VBoxContainer.new()
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		v.add_theme_constant_override("separation", 2)
-		v.add_child(_bold_label(str(rt["name"]) + ("   (current)" if id == current else ""), 32))
-		v.add_child(hud.label(str(rt.get("blurb", "")), "SubLabel"))
-		var b := _card_button(v, 130)
-		var tid := str(id)
-		b.pressed.connect(func():
-			Library.set_room_type(rid, tid)
-			hud.close_sheet()
-			hud.toast("%s is now a %s" % [str(room.get("name", "Room")), str(rt["name"]).to_lower()]))
-		c.add_child(b)
+	var this_room := hud.section(c, "This room")
+	this_room.add_child(hud.label("Furniture", "SubLabel"))
+	var type_opts: Array = []
+	for tid in Styles.room_type_ids():
+		type_opts.append([tid, Styles.room_type(tid)["name"]])
+	hud.segmented(this_room, type_opts, str(room.get("type", "living")), func(k):
+		Library.set_room_type(rid, k)
+		hud.toast(tr("%s is now a %s") % [str(room.get("name", "")), tr(Styles.room_type(k)["name"]).to_lower()]), true)
+	hud.tiles(this_room, [
+		{"label": "Add shelf", "icon": "shelf", "accent": true, "cb": func(): _add_shelf_picker(rid)},
+		{"label": "Rename", "icon": "pencil", "cb": func():
+			prompt("Rename room", str(room["name"]), "Room name", func(t: String): Library.rename_room(rid, t))},
+		{"label": "New room", "icon": "door", "cb": func():
+			prompt("New room", "", "e.g. Study", func(t: String):
+				var nrid := Library.add_room(t)
+				Library.add_shelf(nrid, 0, 1)
+				main().go_to_room_id(nrid))},
+		{"label": "Style", "icon": "palette", "cb": open_style},
+	], 4)
+	hud.links(c, [["Delete this room", func():
+		confirm(tr("Delete “%s”?") % str(room["name"]), tr("Its shelves are removed and all %d books move to the tray.") % Library.room_book_count(rid), "Delete room", func():
+			Library.remove_room(rid)
+			hud.toast("Room deleted · books are in the tray")), true]])
+
+
+func open_room_type(_rid: String) -> void:
+	# kept for callers; the room menu now offers the furniture chips inline
+	open_room_menu()
+
 
 func _add_shelf_picker(rid: String) -> void:
-	var c := hud.open_sheet("Add a shelf", 0.8)
-	c.add_child(hud.label("Pick a free spot along a wall. Spots are numbered left to right as seen from the middle of the room.", "MutedLabel"))
+	var c := hud.open_sheet("Add a shelf", 0.85)
+	c.add_child(hud.label("Pick a free spot along a wall. Spots are numbered left to right as seen from the middle of the room. Doors, the window and the fireplace keep their spots.", "MutedLabel"))
 	var any := false
 	for wall in 4:
-		c.add_child(_bold_label("%s wall" % Styles.WALL_NAMES[wall], 28))
+		var sec := hud.section(c, tr("%s wall") % tr(Styles.WALL_NAMES[wall]))
 		var g := GridContainer.new()
 		g.columns = 5
 		g.add_theme_constant_override("h_separation", 10)
 		g.add_theme_constant_override("v_separation", 10)
 		for slot in Styles.slot_count(wall):
-			var b := hud.button("Spot %d" % (slot + 1), "", 84)
+			var b := hud.button(tr("Spot %d") % (slot + 1), "", 80)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.add_theme_font_size_override("font_size", 25)
 			var free := Library.is_slot_free(rid, wall, slot)
 			b.disabled = not free
 			if not free:
-				b.text = "taken"
+				b.text = tr("taken")
 			else:
 				any = true
 			var w := wall
@@ -626,58 +585,47 @@ func _add_shelf_picker(rid: String) -> void:
 			b.pressed.connect(func():
 				var sid := Library.add_shelf(rid, w, sl)
 				hud.close_sheet()
-				hud.toast("Shelf added on the %s wall" % Styles.WALL_NAMES[w].to_lower())
+				hud.toast(tr("Shelf added on the %s wall") % tr(Styles.WALL_NAMES[w]).to_lower())
 				if sid != "":
 					main().enter_shelf_by_id(sid))
 			g.add_child(b)
-		c.add_child(g)
+		sec.add_child(g)
 	if not any:
-		c.add_child(hud.label("This room is full. Create a new room from the Room menu.", "MutedLabel"))
+		c.add_child(hud.label("This room is full. Create a new room from the room menu.", "MutedLabel"))
 
 # ---------------------------------------------------------------- shelf menu
 
+
 func open_shelf_menu(sid: String) -> void:
-	var s := Library.get_shelf(sid)
-	if s.is_empty():
+	var sh := Library.get_shelf(sid)
+	if sh.is_empty():
 		return
-	var c := hud.open_sheet(str(s["name"]), 0.7)
-	c.add_child(hud.label("%s wall · %d books" % [Styles.WALL_NAMES[int(s["wall"])], Library.shelf_book_count(sid)], "MutedLabel"))
-	var rename := hud.button("Rename shelf")
-	rename.pressed.connect(func():
-		prompt("Rename shelf", str(s["name"]), "Shelf name", func(t: String): Library.rename_shelf(sid, t)))
-	c.add_child(rename)
-	var r := hud.row()
-	var fo := hud.button("Covers out")
-	fo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fo.pressed.connect(func():
-		var n := _set_face_out_all(sid, true)
-		hud.close_sheet()
-		hud.toast("%d cover%s turned out" % [n, "" if n == 1 else "s"]))
-	r.add_child(fo)
-	var so := hud.button("Spines out")
-	so.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	so.pressed.connect(func():
-		_set_face_out_all(sid, false)
-		hud.close_sheet())
-	r.add_child(so)
-	c.add_child(r)
-	var tray := hud.button("Move all books to the tray")
-	tray.pressed.connect(func():
-		confirm("Empty this shelf?", "All %d books move to the tray so you can place them elsewhere." % Library.shelf_book_count(sid), "Empty shelf", func():
-			var ids: Array = []
-			for row in Library.get_shelf(sid)["rows"]:
-				ids.append_array(row)
-			for id in ids:
-				Library.to_tray(id)
-			hud.toast("Shelf emptied into the tray")))
-	c.add_child(tray)
-	c.add_child(hud.spacer(10))
-	var del := hud.button("Delete shelf", "DangerButton")
-	del.pressed.connect(func():
-		confirm("Delete “%s”?" % str(s["name"]), "Its %d books move to the tray." % Library.shelf_book_count(sid), "Delete shelf", func():
+	var c := hud.open_sheet(str(sh["name"]), 0.7)
+	var nb := Library.shelf_book_count(sid)
+	c.add_child(hud.label(tr("%s wall") % tr(Styles.WALL_NAMES[int(sh["wall"])]) + " · " + (tr("1 book") if nb == 1 else tr("%d books") % nb), "MutedLabel"))
+	hud.tiles(c, [
+		{"label": "Rename", "icon": "pencil", "cb": func():
+			prompt("Rename shelf", str(sh["name"]), "Shelf name", func(t: String): Library.rename_shelf(sid, t))},
+		{"label": "Covers out", "icon": "flip", "cb": func():
+			var n := _set_face_out_all(sid, true)
+			hud.close_sheet()
+			hud.toast(tr("1 cover turned out") if n == 1 else tr("%d covers turned out") % n)},
+		{"label": "Spines out", "icon": "book", "cb": func():
+			_set_face_out_all(sid, false)
+			hud.close_sheet()},
+		{"label": "Empty to tray", "icon": "tray", "cb": func():
+			confirm("Empty this shelf?", tr("All %d books move to the tray so you can place them elsewhere.") % Library.shelf_book_count(sid), "Empty shelf", func():
+				var ids: Array = []
+				for row in Library.get_shelf(sid)["rows"]:
+					ids.append_array(row)
+				for id in ids:
+					Library.to_tray(id)
+				hud.toast("Shelf emptied into the tray"))},
+	], 4)
+	hud.links(c, [["Delete shelf", func():
+		confirm(tr("Delete “%s”?") % str(sh["name"]), tr("Its %d books move to the tray.") % Library.shelf_book_count(sid), "Delete shelf", func():
 			Library.remove_shelf(sid)
-			hud.toast("Shelf deleted · books are in the tray")))
-	c.add_child(del)
+			hud.toast("Shelf deleted · books are in the tray")), true]])
 
 func _set_face_out_all(sid: String, face_out: bool) -> int:
 	var s := Library.get_shelf(sid)
@@ -715,12 +663,12 @@ func open_book_detail(id: String) -> void:
 	v.add_child(_bold_label(str(b["title"]), 32))
 	if str(b.get("series", "")) != "":
 		v.add_child(hud.label(str(b["series"]), "SubLabel"))
-	v.add_child(hud.label(_short_authors(b.get("authors", []), 4) if not b.get("authors", []).is_empty() else "Unknown author", "MutedLabel"))
+	v.add_child(hud.label(_short_authors(b.get("authors", []), 4) if not b.get("authors", []).is_empty() else tr("Unknown author"), "MutedLabel"))
 	var meta: Array = []
 	if str(b.get("year", "")) != "":
 		meta.append(str(b["year"]))
 	if int(b.get("pages", 0)) > 0:
-		meta.append("%d pages" % int(b["pages"]))
+		meta.append(tr("%d pages") % int(b["pages"]))
 	if str(b.get("publisher", "")) != "":
 		meta.append(str(b["publisher"]))
 	if str(b.get("language", "")) != "":
@@ -742,10 +690,10 @@ func open_book_detail(id: String) -> void:
 	var avg := float(b.get("avg_rating", 0.0))
 	var rating_bits: Array = []
 	if rating > 0:
-		rating_bits.append("My rating %d / 5" % rating)
+		rating_bits.append(tr("My rating %d / 5") % rating)
 	if avg > 0.0:
 		var cnt := int(b.get("ratings_count", 0))
-		rating_bits.append("Average %.1f" % avg + (" (%d)" % cnt if cnt > 0 else ""))
+		rating_bits.append(tr("Average %.1f") % avg + (" (%d)" % cnt if cnt > 0 else ""))
 	if not rating_bits.is_empty():
 		var sl := hud.label(" · ".join(PackedStringArray(rating_bits)), "SmallLabel")
 		sl.add_theme_color_override("font_color", hud.accent())
@@ -753,12 +701,12 @@ func open_book_detail(id: String) -> void:
 	var status := Library.status_label(b)
 	var read := str(b.get("date_read", ""))
 	if status != "":
-		v.add_child(hud.label(status + (" · finished " + read if read != "" else ""), "SmallLabel"))
+		v.add_child(hud.label(status + (tr(" · finished %s") % read if read != "" else ""), "SmallLabel"))
 	v.add_child(hud.spacer(4))
 	var loc := Library.find_location(id)
-	var where := "In the archive box" if str(b.get("status", "")) == "archived" else "On: " + Library.location_label(loc, id)
+	var where := tr("In the archive box") if str(b.get("status", "")) == "archived" else tr("On: %s") % Library.location_label(loc, id)
 	if str(b.get("status", "")) == "currently-reading":
-		where += " · also on the reading table"
+		where += tr(" · also on the reading table")
 	v.add_child(hud.label(where, "SmallLabel"))
 	h.add_child(v)
 	c.add_child(h)
@@ -792,30 +740,19 @@ func open_book_detail(id: String) -> void:
 		c.add_child(rl)
 	c.add_child(hud.spacer(4))
 
-	var g := GridContainer.new()
-	g.columns = 2
-	g.add_theme_constant_override("h_separation", 12)
-	g.add_theme_constant_override("v_separation", 12)
 	var archived := str(b.get("status", "")) == "archived"
+	var reading := str(b.get("status", "")) == "currently-reading"
+	var actions: Array = []
 	if archived:
-		var restore := hud.button("Restore to a shelf", "AccentButton")
-		restore.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		restore.pressed.connect(func():
+		actions.append({"label": "Restore to a shelf", "icon": "restore", "accent": true, "cb": func():
 			Library.update_book(id, {"status": ""})
 			hud.close_sheet()
-			hud.toast("Back on " + Library.location_label(Library.find_location(id), id)))
-		g.add_child(restore)
+			hud.toast(tr("Back on %s") % Library.location_label(Library.find_location(id), id))})
 	else:
-		if loc.has("shelf"):
-			var show := hud.button("Show on shelf", "AccentButton")
-			show.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			show.pressed.connect(func():
-				hud.close_sheet()
-				main().enter_shelf_by_id(str(loc["shelf"])))
-			g.add_child(show)
-		var face := hud.button("Spine out" if b.get("face_out", false) else "Cover out")
-		face.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		face.pressed.connect(func():
+		actions.append({"label": "Show on shelf", "icon": "eye", "accent": true, "disabled": not loc.has("shelf"), "cb": func():
+			hud.close_sheet()
+			main().enter_shelf_by_id(str(loc.get("shelf", "")))})
+		actions.append({"label": "Spine out" if b.get("face_out", false) else "Cover out", "icon": "flip", "cb": func():
 			var want := not bool(b.get("face_out", false))
 			if want and loc.has("shelf"):
 				var extra := float(b["width"]) - float(b["thickness"])
@@ -823,69 +760,41 @@ func open_book_detail(id: String) -> void:
 					hud.toast("Not enough space on this row to turn the cover out")
 					return
 			Library.update_book(id, {"face_out": want})
-			hud.close_sheet())
-		g.add_child(face)
-		var mv := hud.button("Move to…")
-		mv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		mv.pressed.connect(func(): open_move_picker(id))
-		g.add_child(mv)
-		var tray := hud.button("Put in tray")
-		tray.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tray.pressed.connect(func():
+			hud.close_sheet()})
+		actions.append({"label": "Move to…", "icon": "move", "cb": func(): open_move_picker(id)})
+		actions.append({"label": "Put in tray", "icon": "tray", "cb": func():
 			Library.to_tray(id)
 			hud.close_sheet()
-			hud.toast("“%s” is in the tray" % str(b["title"])))
-		g.add_child(tray)
-		var reading := str(b.get("status", "")) == "currently-reading"
-		var rd := hud.button("Finished reading" if reading else "Start reading")
-		rd.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		rd.pressed.connect(func():
+			hud.toast(tr("“%s” is in the tray") % str(b["title"]))})
+		actions.append({"label": "Finished reading" if reading else "Start reading", "icon": "book", "cb": func():
 			Library.update_book(id, {"status": "read" if reading else "currently-reading"})
 			hud.close_sheet()
-			hud.toast("Marked as read" if reading else "On the reading table now"))
-		g.add_child(rd)
-		var arch := hud.button("Archive")
-		arch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		arch.pressed.connect(func():
+			hud.toast("Marked as read" if reading else "On the reading table now")})
+		actions.append({"label": "Archive", "icon": "archive", "cb": func():
 			Library.update_book(id, {"status": "archived"})
 			hud.close_sheet()
-			hud.toast("“%s” is in the archive box" % str(b["title"])))
-		g.add_child(arch)
-	var fetch := hud.button("Fetch cover" if str(b.get("cover_file", "")) == "" else "Refresh cover")
-	fetch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fetch.pressed.connect(func():
-		BookAPI.request_cover(id, true)
-		hud.close_sheet()
-		hud.toast("Looking for a cover…"))
-	g.add_child(fetch)
-	var refresh := hud.button("Refresh details")
-	refresh.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	refresh.pressed.connect(func():
-		refresh.disabled = true
-		refresh.text = "Refreshing…"
+			hud.toast(tr("“%s” is in the archive box") % str(b["title"]))})
+	actions.append({"label": "Refresh details", "icon": "refresh", "cb": func():
+		hud.toast("Refreshing from the catalogue…")
 		var err: String = await BookAPI.refresh_book(id)
 		if err != "":
 			hud.toast(err)
-			if is_instance_valid(refresh):
-				refresh.disabled = false
-				refresh.text = "Refresh details"
 			return
 		hud.toast("Details updated from the catalogue")
 		if hud.is_dialog_open():
-			open_book_detail(id))
-	g.add_child(refresh)
-	var edit := hud.button("Edit details")
-	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	edit.pressed.connect(func(): _edit_book(id))
-	g.add_child(edit)
-	var del := hud.button("Remove", "DangerButton")
-	del.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	del.pressed.connect(func():
-		confirm("Remove “%s”?" % str(b["title"]), "The book is deleted from your library.", "Remove", func():
-			Library.remove_book(id)
-			hud.toast("Removed")))
-	g.add_child(del)
-	c.add_child(g)
+			open_book_detail(id)})
+	actions.append({"label": "Edit details", "icon": "pencil", "cb": func(): _edit_book(id)})
+	hud.tiles(c, actions, 4)
+	hud.links(c, [
+		["Fetch cover" if str(b.get("cover_file", "")) == "" else "Refresh cover", func():
+			BookAPI.request_cover(id, true)
+			hud.close_sheet()
+			hud.toast("Looking for a cover…")],
+		["Remove from library", func():
+			confirm(tr("Remove “%s”?") % str(b["title"]), "The book is deleted from your library.", "Remove", func():
+				Library.remove_book(id)
+				hud.toast("Removed")), true],
+	])
 
 ## Genre chips (accent tint) and tag chips (neutral) laid out in a wrapping row.
 func _chip_row(chips: Array) -> Control:
@@ -905,78 +814,46 @@ func _chip_row(chips: Array) -> Control:
 		flow.add_child(pc)
 	return flow
 
+
 func _edit_book(id: String) -> void:
 	var b := Library.get_book(id)
-	var c := hud.open_sheet("Edit book", 0.7)
-	var title := LineEdit.new()
-	title.text = str(b["title"])
-	title.placeholder_text = "Title"
-	title.custom_minimum_size = Vector2(0, 84)
-	var author := LineEdit.new()
-	author.text = ", ".join(PackedStringArray(b.get("authors", [])))
-	author.placeholder_text = "Author(s), comma separated"
-	author.custom_minimum_size = Vector2(0, 84)
-	var pages := LineEdit.new()
-	pages.text = str(int(b.get("pages", 0))) if int(b.get("pages", 0)) > 0 else ""
-	pages.placeholder_text = "Pages"
-	pages.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
-	pages.custom_minimum_size = Vector2(0, 84)
-	var year := LineEdit.new()
-	year.text = str(b.get("year", ""))
-	year.placeholder_text = "Year"
-	year.custom_minimum_size = Vector2(0, 84)
+	var c := hud.open_sheet("Edit book", 0.9)
+	var mk := func(text: String, placeholder: String, numeric := false) -> LineEdit:
+		var e := LineEdit.new()
+		e.text = text
+		e.placeholder_text = tr(placeholder)
+		e.custom_minimum_size = Vector2(0, 80)
+		e.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if numeric:
+			e.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
+		return e
+	var about := hud.section(c, "Title & author")
+	var title: LineEdit = mk.call(str(b["title"]), "Title")
+	var author: LineEdit = mk.call(", ".join(PackedStringArray(b.get("authors", []))), "Author(s), comma separated")
+	about.add_child(title)
+	about.add_child(author)
+	var details := hud.section(c, "Details")
 	var r := hud.row()
-	pages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	year.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var pages: LineEdit = mk.call(str(int(b.get("pages", 0))) if int(b.get("pages", 0)) > 0 else "", "Pages", true)
+	var year: LineEdit = mk.call(str(b.get("year", "")), "Year")
 	r.add_child(pages)
 	r.add_child(year)
-	var series := LineEdit.new()
-	series.text = str(b.get("series", ""))
-	series.placeholder_text = "Series, e.g. The Kingkiller Chronicle #1"
-	series.custom_minimum_size = Vector2(0, 84)
-	var genres := LineEdit.new()
-	genres.text = ", ".join(PackedStringArray(b.get("genres", [])))
-	genres.placeholder_text = "Genres, comma separated"
-	genres.custom_minimum_size = Vector2(0, 84)
-	var tags := LineEdit.new()
-	tags.text = ", ".join(PackedStringArray(b.get("tags", [])))
-	tags.placeholder_text = "Tags / tropes, comma separated"
-	tags.custom_minimum_size = Vector2(0, 84)
-	var sr := hud.row()
-	var sl := hud.label("Status:")
-	sl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	sr.add_child(sl)
-	var status := OptionButton.new()
-	status.custom_minimum_size = Vector2(0, 84)
-	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var status_keys: Array = Library.STATUS_KEYS
-	for i in status_keys.size():
-		status.add_item(Library.STATUS_LABELS[status_keys[i]] if status_keys[i] != "" else "No status")
-		if status_keys[i] == str(b.get("status", "")):
-			status.selected = i
-	sr.add_child(status)
-	var rr := hud.row()
-	var rl := hud.label("My rating:")
-	rl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	rl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rr.add_child(rl)
-	var rating := OptionButton.new()
-	rating.custom_minimum_size = Vector2(0, 84)
-	rating.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rating.add_item("Not rated")
-	for i in range(1, 6):
-		rating.add_item("%d / 5" % i)
-	rating.selected = clamp(int(b.get("rating", 0)), 0, 5)
-	rr.add_child(rating)
-	c.add_child(title)
-	c.add_child(author)
-	c.add_child(r)
-	c.add_child(series)
-	c.add_child(genres)
-	c.add_child(tags)
-	c.add_child(sr)
-	c.add_child(rr)
+	details.add_child(r)
+	var series: LineEdit = mk.call(str(b.get("series", "")), "Series, e.g. The Kingkiller Chronicle #1")
+	details.add_child(series)
+	var cls := hud.section(c, "Genres & tags")
+	var genres: LineEdit = mk.call(", ".join(PackedStringArray(b.get("genres", []))), "Genres, comma separated")
+	var tags: LineEdit = mk.call(", ".join(PackedStringArray(b.get("tags", []))), "Tags / tropes, comma separated")
+	cls.add_child(genres)
+	cls.add_child(tags)
+	var rd := hud.section(c, "Reading")
+	var state := {"status": str(b.get("status", "")), "rating": clamp(int(b.get("rating", 0)), 0, 5)}
+	var status_opts: Array = []
+	for k in Library.STATUS_KEYS:
+		status_opts.append([k, Library.STATUS_LABELS[k] if k != "" else "No status"])
+	hud.segmented(rd, status_opts, state["status"], func(k): state["status"] = k, true)
+	rd.add_child(hud.label("My rating", "SubLabel"))
+	hud.segmented(rd, [[0, "–"], [1, "1"], [2, "2"], [3, "3"], [4, "4"], [5, "5"]], state["rating"], func(k): state["rating"] = k)
 	var save := hud.button("Save", "AccentButton")
 	save.pressed.connect(func():
 		var authors: Array = []
@@ -986,7 +863,7 @@ func _edit_book(id: String) -> void:
 		Library.update_book(id, {
 			"title": title.text.strip_edges(), "authors": authors, "pages": int(pages.text), "year": year.text.strip_edges(),
 			"series": series.text.strip_edges(), "genres": Library._str_list(genres.text, 8), "tags": Library._str_list(tags.text, 12),
-			"status": status_keys[status.selected], "rating": rating.selected,
+			"status": state["status"], "rating": int(state["rating"]),
 		})
 		hud.close_sheet()
 		hud.toast("Saved"))
@@ -994,89 +871,94 @@ func _edit_book(id: String) -> void:
 
 # ---------------------------------------------------------------- move picker
 
+
 func open_move_picker(id: String) -> void:
 	var b := Library.get_book(id)
-	var c := hud.open_sheet("Move “%s”" % str(b["title"]), 0.88)
-	var tray := hud.button("Put in tray")
-	tray.pressed.connect(func():
+	var c := hud.open_sheet(tr("Move “%s”") % str(b["title"]), 0.9)
+	hud.tiles(c, [{"label": "Put in tray", "icon": "tray", "cb": func():
 		Library.to_tray(id)
 		hud.close_sheet()
-		hud.toast("Moved to the tray"))
-	c.add_child(tray)
+		hud.toast("Moved to the tray")}], 3)
 	for room in Library.get_rooms():
-		c.add_child(hud.spacer(6))
-		c.add_child(_bold_label(str(room["name"]), 30))
-		for s in Styles.around_room(room.get("shelves", [])):
-			var card := PanelContainer.new()
-			card.theme_type_variation = "Card"
-			var v := VBoxContainer.new()
-			v.add_theme_constant_override("separation", 8)
-			v.add_child(hud.label("%s · %s wall" % [str(s["name"]), Styles.WALL_NAMES[int(s["wall"])]], "SmallLabel"))
+		var sec := hud.section(c, str(room["name"]))
+		for sh in Styles.around_room(room.get("shelves", [])):
+			sec.add_child(hud.label(tr("%s · %s wall") % [str(sh["name"]), tr(Styles.WALL_NAMES[int(sh["wall"])])], "SmallLabel"))
 			var g := GridContainer.new()
 			g.columns = 5
 			g.add_theme_constant_override("h_separation", 8)
-			var sid := str(s["id"])
-			for ri in range(s["rows"].size() - 1, -1, -1):
-				var btn := hud.button("Row %d\n%d" % [Library.row_number(ri), s["rows"][ri].size()], "", 96)
+			var sid := str(sh["id"])
+			for ri in range(sh["rows"].size() - 1, -1, -1):
+				var btn := hud.button(tr("Row %d") % Library.row_number(ri) + "\n%d" % sh["rows"][ri].size(), "", 92)
 				btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				btn.add_theme_font_size_override("font_size", 24)
+				btn.add_theme_font_size_override("font_size", 23)
 				btn.disabled = not Library.fits_in_row(id, sid, ri)
 				var row_i: int = ri
 				btn.pressed.connect(func():
 					if Library.place(id, sid, row_i, 9999):
 						hud.close_sheet()
-						hud.toast("Moved to " + Library.location_label({"shelf": sid, "row": row_i}))
+						hud.toast(tr("Moved to %s") % Library.location_label({"shelf": sid, "row": row_i}))
 					else:
 						hud.toast("That row is full"))
 				g.add_child(btn)
-			v.add_child(g)
-			card.add_child(v)
-			c.add_child(card)
+			sec.add_child(g)
 
 # ---------------------------------------------------------------- all books
 
 var _books_sort := "title"
 var _books_query := ""
+var _books_status := "*"
+
 
 func open_all_books() -> void:
-	var c := hud.open_sheet("All books · %d" % Library.book_count(), 0.9)
+	var c := hud.open_sheet(tr("All books · %d") % Library.book_count(), 0.92)
 	var r := hud.row()
 	var field := LineEdit.new()
-	field.placeholder_text = "Filter by title, author, genre, tag…"
+	field.placeholder_text = tr("Filter by title, author, genre, tag…")
 	field.text = _books_query
 	field.clear_button_enabled = true
 	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	field.custom_minimum_size = Vector2(0, 84)
+	field.custom_minimum_size = Vector2(0, 80)
 	r.add_child(field)
 	var sort := OptionButton.new()
-	sort.custom_minimum_size = Vector2(230, 84)
+	sort.custom_minimum_size = Vector2(210, 80)
 	var sorts := [["title", "Title"], ["author", "Author"], ["newest", "Newest"], ["rating", "Rating"]]
 	for i in sorts.size():
-		sort.add_item(sorts[i][1])
+		sort.add_item(tr(sorts[i][1]))
 		if sorts[i][0] == _books_sort:
 			sort.selected = i
 	r.add_child(sort)
 	c.add_child(r)
 	var count := hud.label("", "SubLabel")
-	c.add_child(count)
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 8)
-	c.add_child(list)
 	var more := hud.button("Show more")
 	more.visible = false
-	c.add_child(more)
 	var state := {"limit": 40}
 	var refresh := func() -> void:
 		for ch in list.get_children():
 			list.remove_child(ch)
 			ch.queue_free()
-		var ids := Library.sorted_book_ids(_books_sort, _books_query)
-		count.text = "%d book%s" % [ids.size(), "" if ids.size() == 1 else "s"] + (" matching" if _books_query != "" else "")
+		var ids: Array = []
+		for bid in Library.sorted_book_ids(_books_sort, _books_query):
+			if _books_status == "*" or str(Library.get_book(bid).get("status", "")) == _books_status:
+				ids.append(bid)
+		count.text = (tr("1 book") if ids.size() == 1 else tr("%d books") % ids.size()) + (tr(" matching") if _books_query != "" or _books_status != "*" else "")
 		var shown: int = min(ids.size(), state["limit"])
 		for i in shown:
 			list.add_child(_book_row(ids[i]))
 		more.visible = shown < ids.size()
-		more.text = "Show more (%d left)" % (ids.size() - shown)
+		more.text = tr("Show more (%d left)") % (ids.size() - shown)
+	var status_opts: Array = [["*", "All"]]
+	for k in Library.STATUS_KEYS:
+		if k != "":
+			status_opts.append([k, Library.STATUS_LABELS[k]])
+	hud.segmented(c, status_opts, _books_status, func(k):
+		_books_status = k
+		state["limit"] = 40
+		refresh.call(), true)
+	c.add_child(count)
+	c.add_child(list)
+	c.add_child(more)
 	field.text_changed.connect(func(t: String):
 		_books_query = t
 		state["limit"] = 40
@@ -1132,7 +1014,7 @@ func _book_row(id: String) -> Control:
 
 func open_reading_list() -> void:
 	var ids := Library.reading_ids()
-	var c := hud.open_sheet("Reading table · %d" % ids.size(), 0.62)
+	var c := hud.open_sheet(tr("Reading table · %d") % ids.size(), 0.62)
 	if ids.is_empty():
 		c.add_child(hud.label("Nothing on the table yet.", "SubLabel"))
 		c.add_child(hud.label("Open a book and tap “Start reading”, or set its status to Reading. It shows up here and stays in its shelf as a ghost so you know where it belongs.", "MutedLabel"))
@@ -1143,7 +1025,7 @@ func open_reading_list() -> void:
 
 func open_archive() -> void:
 	var ids := Library.archived_ids()
-	var c := hud.open_sheet("Archive box · %d" % ids.size(), 0.62)
+	var c := hud.open_sheet(tr("Archive box · %d") % ids.size(), 0.62)
 	if ids.is_empty():
 		c.add_child(hud.label("The box is empty.", "SubLabel"))
 		c.add_child(hud.label("Archive a book from its detail sheet to take it off the shelves without deleting it. Restoring it puts it back on a free spot.", "MutedLabel"))
@@ -1159,7 +1041,7 @@ func open_archive() -> void:
 		var bid: String = id
 		restore.pressed.connect(func():
 			Library.update_book(bid, {"status": ""})
-			hud.toast("Back on " + Library.location_label(Library.find_location(bid), bid))
+			hud.toast(tr("Back on %s") % Library.location_label(Library.find_location(bid), bid))
 			open_archive())
 		h.add_child(restore)
 		c.add_child(h)
@@ -1170,7 +1052,7 @@ func prompt(title: String, initial: String, placeholder: String, cb: Callable) -
 	var c := hud.open_sheet(title, 0.42)
 	var field := LineEdit.new()
 	field.text = initial
-	field.placeholder_text = placeholder
+	field.placeholder_text = tr(placeholder)
 	field.custom_minimum_size = Vector2(0, 88)
 	c.add_child(field)
 	var r := hud.row()
