@@ -20,7 +20,7 @@ var styles: Dictionary = {
 		"floor": {"shader": "planks", "color_a": Color(0.46, 0.30, 0.16), "color_b": Color(0.32, 0.19, 0.10), "roughness": 0.55},
 		"ceiling": {"shader": "planks", "color_a": Color(0.36, 0.23, 0.13), "color_b": Color(0.28, 0.17, 0.09), "roughness": 0.8},
 		"trim": Color(0.28, 0.17, 0.09),
-		"shelf": {"color_a": Color(0.46, 0.29, 0.15), "color_b": Color(0.30, 0.18, 0.09), "roughness": 0.55},
+		"shelf": {"color_a": Color(0.30, 0.18, 0.10), "color_b": Color(0.17, 0.10, 0.06), "roughness": 0.5},
 		"background": Color(0.05, 0.03, 0.02),
 		"ambient": Color(1.0, 0.80, 0.58), "ambient_energy": 0.45,
 		"sun": Color(1.0, 0.88, 0.70), "sun_energy": 1.3,

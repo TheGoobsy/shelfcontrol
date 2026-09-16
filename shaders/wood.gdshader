@@ -8,7 +8,7 @@ uniform vec3 color_a : source_color = vec3(0.50, 0.32, 0.16);
 uniform vec3 color_b : source_color = vec3(0.36, 0.21, 0.10);
 uniform float grain_scale = 1.0;
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.55;
-uniform float bump = 0.010;
+uniform float bump = 0.004;
 instance uniform vec3 box_size = vec3(1.0, 1.0, 1.0);
 
 varying highp vec3 lpos;
@@ -64,12 +64,12 @@ void fragment() {
 		}
 		highp vec2 uv = vec2(u, v + seed * 0.37) * grain_scale;
 		float g = fbm3(vec2(uv.x * 1.6, uv.y * 10.0));
-		float rings = sin(uv.y * 42.0 + g * 7.0 + uv.x * 0.8) * 0.5 + 0.5;
+		float rings = sin(uv.y * 42.0 + g * 4.0 + uv.x * 0.6) * 0.5 + 0.5;
 		float streak = fbm3(vec2(uv.x * 4.0, uv.y * 20.0)) * 0.22;
 		base = mix(color_a, color_b, rings * 0.42 + g * 0.45 + streak);
 		// dark late-wood rings sit slightly proud and are a touch rougher
 		h = rings * 0.5;
-		rough = roughness_val + (rings - 0.5) * 0.18 + streak * 0.3;
+		rough = roughness_val + (rings - 0.5) * 0.12 + streak * 0.2;
 	}
 	NORMAL = bump_normal(NORMAL, VERTEX, h, bump);
 	ALBEDO = base;
