@@ -286,12 +286,10 @@ func _build_top() -> void:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 12)
 	top_bar.add_child(hb)
-	prev_btn = _icon_button("res://icons/chevron_left.svg", 44)
-	prev_btn.pressed.connect(func(): prev_pressed.emit())
-	hb.add_child(prev_btn)
 	title_btn = Button.new()
 	title_btn.theme_type_variation = "GhostButton"
 	title_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_btn.custom_minimum_size = Vector2(0, 96)
 	title_btn.pressed.connect(func(): title_pressed.emit())
 	hb.add_child(title_btn)
 	var vb := VBoxContainer.new()
@@ -312,9 +310,34 @@ func _build_top() -> void:
 	sub_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(sub_lbl)
-	next_btn = _icon_button("res://icons/chevron_right.svg", 44)
+	# room / shelf navigation: bare chevrons at mid-height on the screen edges
+	prev_btn = _nav_chevron("res://icons/chevron_left.svg", Control.PRESET_CENTER_LEFT)
+	prev_btn.pressed.connect(func(): prev_pressed.emit())
+	next_btn = _nav_chevron("res://icons/chevron_right.svg", Control.PRESET_CENTER_RIGHT)
 	next_btn.pressed.connect(func(): next_pressed.emit())
-	hb.add_child(next_btn)
+
+func _nav_chevron(icon_path: String, preset: int) -> Button:
+	var b := Button.new()
+	b.theme_type_variation = "GhostButton"
+	b.icon = load(icon_path)
+	b.expand_icon = true
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	b.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	b.add_theme_constant_override("icon_max_width", 72)
+	b.custom_minimum_size = Vector2(120, 260)
+	b.modulate = Color(1, 1, 1, 0.28)
+	b.focus_mode = Control.FOCUS_NONE
+	b.set_anchors_and_offsets_preset(preset)
+	b.offset_top = -130
+	b.offset_bottom = 130
+	if preset == Control.PRESET_CENTER_LEFT:
+		b.offset_left = 4
+		b.offset_right = 124
+	else:
+		b.offset_left = -124
+		b.offset_right = -4
+	root.add_child(b)
+	return b
 
 ## Round button showing a centred SVG icon (no text, so no baseline offset).
 func _icon_button(icon_path: String, icon_px := 50) -> Button:
@@ -401,8 +424,8 @@ func set_room_mode(room_name: String, subtitle: String, has_multiple: bool) -> v
 	mode_shelf = false
 	title_lbl.text = room_name
 	sub_lbl.text = subtitle
-	prev_btn.disabled = not has_multiple
-	next_btn.disabled = not has_multiple
+	prev_btn.visible = has_multiple
+	next_btn.visible = has_multiple
 	_rebuild_actions()
 	refresh_tray()
 
@@ -410,8 +433,8 @@ func set_shelf_mode(shelf_name: String, subtitle: String, has_multiple: bool) ->
 	mode_shelf = true
 	title_lbl.text = shelf_name
 	sub_lbl.text = subtitle
-	prev_btn.disabled = not has_multiple
-	next_btn.disabled = not has_multiple
+	prev_btn.visible = has_multiple
+	next_btn.visible = has_multiple
 	_rebuild_actions()
 	refresh_tray()
 
@@ -601,6 +624,9 @@ func _build_sheet() -> void:
 	sheet_content.add_theme_constant_override("separation", 14)
 	sheet_scroll.add_child(sheet_content)
 
+var _sheet_scroll_h := 400.0
+var _kb_h := 0.0
+
 func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
 	for c in sheet_content.get_children():
 		sheet_content.remove_child(c)
@@ -609,7 +635,9 @@ func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
 	var h := get_viewport().get_visible_rect().size.y * height_frac
 	sheet.offset_top = 0
 	sheet.offset_bottom = 0
-	sheet_scroll.custom_minimum_size = Vector2(0, h - 140)
+	_sheet_scroll_h = h - 140
+	_kb_h = -1.0
+	_apply_keyboard()
 	sheet_scroll.scroll_vertical = 0
 	dimmer.visible = true
 	sheet.visible = true
@@ -617,6 +645,27 @@ func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
 	var tw := create_tween()
 	tw.tween_property(sheet, "modulate:a", 1.0, 0.15)
 	return sheet_content
+
+## On phones the on-screen keyboard slides over the bottom sheet. Lift the sheet by the keyboard
+## height and shrink it so the focused field stays reachable.
+func _apply_keyboard() -> void:
+	var win_h := float(DisplayServer.window_get_size().y)
+	var canvas_h := get_viewport().get_visible_rect().size.y
+	var kb := float(DisplayServer.virtual_keyboard_get_height()) * (canvas_h / maxf(1.0, win_h))
+	if absf(kb - _kb_h) < 1.0:
+		return
+	_kb_h = kb
+	sheet.offset_bottom = -kb
+	var room := canvas_h - kb - 260.0
+	sheet_scroll.custom_minimum_size = Vector2(0, clampf(_sheet_scroll_h, 160.0, maxf(160.0, room)))
+	if kb > 0.0:
+		var f := get_viewport().gui_get_focus_owner()
+		if f != null and sheet_scroll.is_ancestor_of(f):
+			(func(): sheet_scroll.ensure_control_visible(f)).call_deferred()
+
+func _process(_delta: float) -> void:
+	if sheet.visible:
+		_apply_keyboard()
 
 func close_sheet() -> void:
 	dimmer.visible = false

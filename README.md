@@ -4,7 +4,7 @@ A 3D virtual library for Android, built with Godot 4.7. Walk through styled room
 
 ## Features
 
-- **3D rooms** you look around by dragging. Arrow buttons at the top switch rooms; the current room's name is shown in the middle.
+- **3D rooms** you look around by dragging. Faint chevrons on the left and right screen edges switch rooms (or shelves in the close-up); the current room's name is shown at the top.
 - **Bookcases on the walls.** Tap one to zoom into a close-up. In the close-up, drag a book to reorder it or move it to another row. Pinch to zoom around your fingers, double-tap empty space to zoom into that spot (and again to zoom out), two-finger drag to pan.
 - **Move between shelves** by dragging a book down into the tray, then opening another shelf and tapping a spot. Or use *Move to…* in the book detail sheet to pick any room, shelf and row.
 - **Add books** via search (Google Books first, Open Library as fallback), by ISBN, or manually. Covers are downloaded and cached; the average cover colour becomes the spine colour. Results already in the library are marked.
