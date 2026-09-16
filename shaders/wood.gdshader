@@ -7,7 +7,7 @@ shader_type spatial;
 uniform vec3 color_a : source_color = vec3(0.50, 0.32, 0.16);
 uniform vec3 color_b : source_color = vec3(0.36, 0.21, 0.10);
 uniform float grain_scale = 1.0;
-uniform float roughness_val : hint_range(0.0, 1.0) = 0.55;
+uniform float roughness_val : hint_range(0.0, 1.0) = 0.85;
 instance uniform vec3 box_size = vec3(1.0, 1.0, 1.0);
 
 varying highp vec3 lpos;
