@@ -48,6 +48,7 @@ func _box(size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
 	mi.mesh = bm
 	mi.position = pos
 	mi.material_override = mat
+	mi.set_instance_shader_parameter("box_size", size)
 	case_root.add_child(mi)
 	return mi
 
