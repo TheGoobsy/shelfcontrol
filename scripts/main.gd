@@ -735,6 +735,14 @@ func _run_shot() -> void:
 			_load_room(2, 0.0)
 			pitch = -0.05
 			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+		"keep_fire":
+			# looking south at the fireplace, chairs and shield
+			yaw = PI
+			pitch = -0.08
+			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+		"keep_corner":
+			var eye := Vector3(-0.2, 1.4, 0.2)
+			rig.snap(eye, CameraRig.look_basis(eye, Vector3(2.7, 0.6, 2.0)), 60.0)
 		"door":
 			# stand in the room looking at the east wall door
 			yaw = -PI / 2.0

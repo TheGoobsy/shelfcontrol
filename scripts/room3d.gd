@@ -141,6 +141,9 @@ func _build_decor() -> void:
 	var has_fireplace := false
 	var fire_pos := Vector3(0, 0, Styles.ROOM_D / 2.0)
 	for d in Styles.room_decor(room, style):
+		if d is Dictionary:
+			_place_model(d)
+			continue
 		match str(d):
 			"fireplace":
 				var cs: int = Styles.center_slot(2)
@@ -232,6 +235,19 @@ func _build_decor() -> void:
 				var ch := Decor.chandelier(style)
 				add_child(ch)
 				ch.position = Vector3(0, Styles.ROOM_H, 0.3)
+
+## A decor entry given as a dictionary places an imported model:
+## {"model": "GreenChair_01", "set": "keep", "pos": Vector3, "rot": float, "scale": float,
+##  "light": Vector3 (optional candle light offset), "energy": float}
+func _place_model(d: Dictionary) -> void:
+	var n := Decor.model(str(d.get("set", "keep")), str(d["model"]), float(d.get("scale", 1.0)))
+	if n == null:
+		return
+	add_child(n)
+	n.position = d.get("pos", Vector3.ZERO)
+	n.rotation.y = float(d.get("rot", 0.0))
+	if d.has("light"):
+		Decor.attach_light(n, d["light"], style.get("lamp", Color(1, 0.75, 0.45)), float(d.get("energy", 1.2)) * float(style.get("lamp_energy", 2.0)) / 2.0, float(d.get("range", 4.0)))
 
 ## Functional props present in every room: the reading table and the archive box.
 func _build_props() -> void:

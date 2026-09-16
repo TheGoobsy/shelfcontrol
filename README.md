@@ -15,7 +15,7 @@ A 3D virtual library for Android, built with Godot 4.7. Walk through styled room
 - **Cover-out display**: any book can stand with its cover facing out.
 - **Reading table**: a coffee table on the rug holds the books whose status is *Reading*, stacked cover-up. Each of those books keeps its shelf spot, drawn as a pale ghost so you know where it belongs. Tap the table and the camera flies in and opens the list (and flies back out when you close it); the detail sheet has *Start reading* / *Finished reading* and *Show on shelf*.
 - **Archive box**: a cardboard box in the corner holds *Archived* books. Archiving takes a book off its shelf without deleting it; *Restore* puts it back on the first free spot. Tap the box and the camera flies in and opens the list.
-- **Five styles**: Cozy Cabin (procedural log walls, fireplace, rug), Timber Lodge (photo textures from Poly Haven: stacked timber walls, worn pine floor, plank ceiling, dark hardwood shelves with the grain following each board), Modern Loft (brick, concrete, oak), Dark Academia (green wallpaper, walnut wainscot, candlelight), Scandi Bright. Each style textures the walls, floor, ceiling and shelves, tints the UI, and places decor (plants, rug, armchair, lamps, window or a fireplace with animated flames, and a sleeping cat on the rug).
+- **Six styles**: Cozy Cabin (procedural log walls, fireplace, rug), Timber Lodge (photo textures from Poly Haven: stacked timber walls, worn pine floor, plank ceiling, dark hardwood shelves with the grain following each board), Medieval Keep (castle stone walls, slate floor, plank ceiling, and CC0 Poly Haven models: gothic chairs and coffee table, potted plants and a fern, candles and a lantern chandelier, treasure chest, crate, kite shield and a gothic statue), Modern Loft (brick, concrete, oak), Dark Academia (green wallpaper, walnut wainscot, candlelight), Scandi Bright. Each style textures the walls, floor, ceiling and shelves, tints the UI, and places decor (plants, rug, armchair, lamps, window or a fireplace with animated flames, and a sleeping cat on the rug).
 - **Doors between rooms**: rooms form a chain and each pair is joined by a door with a name plate. You leave through the east or south wall, alternating, and arrive through the opposite wall, so consecutive rooms always turn like an L, never a corridor. If a room's entry lands on the north wall, its window moves to a side wall without a door. A room has at most two doors (in and out). Tap a door to swing it open and walk into the next room, arriving with your back to it. Door spots are reserved: shelves can't be added there, and a shelf already standing on one is moved to a free spot.
 - **Room types** (per room, pencil icon → Room type): Living room (the style's own furniture), Office (writing desk with banker's lamp, swivel chair, globe), Bedroom (bed, nightstand lamp, rug) and Fantasy library (candelabras, lectern with an open tome, glowing crystal ball, candle chandelier). The style still decides materials and colours.
 - **Room management** (pencil icon, top right): rename rooms and shelves, add shelves to free wall spots, change the room type or the library style, add or delete rooms. In a shelf view the pencil edits that shelf.
@@ -52,7 +52,8 @@ scripts/
 translations/ui.csv      English + German UI strings (keys = English)
 icons/                   SVG icons for the side buttons
 shaders/                 Procedural surfaces: planks, logs, wood, brick, plaster, wallpaper, rug, fire, sky glass
-textures/lodge/          Poly Haven texture sets (diffuse / normal / roughness) for the Timber Lodge style
+textures/lodge/, textures/keep/   Poly Haven texture sets (diffuse / normal / roughness)
+models/keep/             Poly Haven glTF models (1k) placed by the Medieval Keep style
 tools/make_icons.gd      Renders launcher icons from icon.svg
 export_presets.cfg       Android preset (arm64, internet permission, immersive)
 ```
@@ -70,7 +71,7 @@ Screenshot harness (used during development):
 
 ```bash
 godot --path . --resolution 540x1080 -- --demo --mode=shelf --shot=/tmp/shelf.png
-# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, window, door, door_go, attic, attic_n, box, focus_table, focus_box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
+# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, window, door, door_go, attic, attic_n, keep_fire, keep_corner, box, focus_table, focus_box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
 # add --style=timber_lodge (or any style id) to render a different style
 # add --night to render with night mode on, --lang=de for German
 godot --headless --path . -- --demo --apitest
@@ -93,6 +94,8 @@ For a release build, add a release keystore to the preset and use `--export-rele
 ## Credits
 
 Timber Lodge uses CC0 textures from [Poly Haven](https://polyhaven.com): *Wood Trunk Wall* (Amal Kumar), *Wood Floor Worn* (Dimitrios Savva), *Brown Planks 09* (Rob Tuytel), *Dark Wood* (Dario Barresi, Dimitrios Savva, Rico Cilliers) and *Brown Leather* (Rob Tuytel) for the armchair. The reading table is built from the style's shelf wood in every style. The trunk wall maps are rotated 90° so the timbers lie horizontally.
+
+Medieval Keep uses CC0 textures *Castle Wall Slates* (Rob Tuytel), *Slate Floor 02* (Dimitrios Savva), *Medieval Wood* (Rob Tuytel), *Dark Wooden Planks* (Amal Kumar) and CC0 models *Green Chair 01* and *Lantern Chandelier 01* (Kirill Sannikov), *Gothic Coffee Table* and *Kite Shield* (Ulan Cabanilla), *Potted Plant 01* and *Treasure Chest* (Rico Cilliers), *Fern 02* (Rob Tuytel, Rico Cilliers), *Wooden Candlestick* (Josh Dean), *Brass Candleholders* (Tina), *Wooden Crate 01* (James Ray Cock) and *Gothic Statue* (Benny Weimer), all from [Poly Haven](https://polyhaven.com). Models are the 1k glTF exports under `models/keep/`; a style's decor list can place any of them with `{"model": …, "pos": …}` entries.
 
 ## Notes
 

@@ -440,6 +440,18 @@ static func _pick_body(root: Node3D, size: Vector3, pos: Vector3, prop: String) 
 
 ## Low coffee table on the rug. Books being read are stacked on it by Room3D (child "Stack").
 static func reading_table(style: Dictionary) -> Node3D:
+	if style.has("table_model"):
+		var tm: Dictionary = style["table_model"]
+		var mroot := model(str(tm.get("set", "keep")), str(tm["model"]), float(tm.get("scale", 1.0)))
+		if mroot != null:
+			var box: AABB = mroot.get_meta("aabb")
+			var top := box.position.y + box.size.y
+			var stack := Node3D.new()
+			stack.name = "Stack"
+			stack.position = Vector3(box.position.x + box.size.x * 0.35, top, box.position.z + box.size.z * 0.5)
+			mroot.add_child(stack)
+			_pick_body(mroot, Vector3(box.size.x + 0.1, top + 0.3, box.size.z + 0.1), Vector3(box.position.x + box.size.x / 2.0, (top + 0.3) / 2.0, box.position.z + box.size.z / 2.0), "reading")
+			return mroot
 	var root := Node3D.new()
 	var wood := Materials.shelf_wood(style)
 	const TOP_Y := 0.42
@@ -804,3 +816,62 @@ static func door(style: Dictionary, plate_text: String, to_rid: String) -> Node3
 	body.set_meta("door_to", to_rid)
 	root.add_child(body)
 	return root
+
+# ---------------------------------------------------------------- imported models (Poly Haven glTF)
+
+static var _model_cache: Dictionary = {}
+
+## Instantiates a CC0 model from res://models/<set>/<name>/<name>.gltf inside a Node3D whose origin is
+## the model's floor point. Returns null (and prints) if the file is missing.
+static func model(model_set: String, model_name: String, scale := 1.0) -> Node3D:
+	var path := "res://models/%s/%s/%s.gltf" % [model_set, model_name, model_name]
+	var scene: PackedScene = _model_cache.get(path)
+	if scene == null:
+		if not ResourceLoader.exists(path):
+			push_warning("model missing: " + path)
+			return null
+		scene = load(path)
+		_model_cache[path] = scene
+	var root := Node3D.new()
+	root.name = model_name
+	var inst := scene.instantiate()
+	root.add_child(inst)
+	inst.scale = Vector3.ONE * scale
+	# put the lowest point on the floor
+	var box := model_aabb(inst)
+	inst.position.y = -box.position.y
+	root.set_meta("aabb", AABB(box.position + Vector3(0, -box.position.y, 0), box.size))
+	return root
+
+## Merged bounding box of all meshes under `node`, in `node`'s local space (works before entering the tree).
+static func model_aabb(node: Node3D) -> AABB:
+	var acc := {"box": AABB(), "first": true}
+	_merge_aabb(node, node.transform, acc)
+	return acc["box"]
+
+static func _merge_aabb(n: Node, xform: Transform3D, acc: Dictionary) -> void:
+	if n is MeshInstance3D and n.mesh != null:
+		var b: AABB = xform * n.mesh.get_aabb()
+		if acc["first"]:
+			acc["box"] = b
+			acc["first"] = false
+		else:
+			acc["box"] = acc["box"].merge(b)
+	for c in n.get_children():
+		if c is Node3D:
+			_merge_aabb(c, xform * c.transform, acc)
+		else:
+			_merge_aabb(c, xform, acc)
+
+## Warm flickering candle light attached to a model (offset in metres above its floor point).
+static func attach_light(root: Node3D, offset: Vector3, color: Color, energy: float, rng_range := 4.0) -> void:
+	var light := FlickerLight.new()
+	light.light_color = color
+	light.light_energy = energy
+	light.amount = 0.18
+	light.speed = 5.0
+	light.omni_range = rng_range
+	light.omni_attenuation = 1.4
+	light.shadow_enabled = false
+	light.position = offset
+	root.add_child(light)
