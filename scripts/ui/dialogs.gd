@@ -28,6 +28,17 @@ func _bold_label(text: String, size := 30) -> Label:
 
 const CardRowScript := preload("res://scripts/ui/card_row.gd")
 
+## Small muted chevron for rows that open something, vertically centred in its row.
+func _chevron() -> Control:
+	var t := TextureRect.new()
+	t.texture = load("res://icons/chevron_right.svg")
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.custom_minimum_size = Vector2(34, 34)
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	t.modulate = hud.muted()
+	return t
+
 func _card_button(content: Control, min_h: float) -> PanelContainer:
 	return CardRowScript.new(content, min_h)
 
@@ -528,10 +539,7 @@ func open_room_menu() -> void:
 		v.add_child(_bold_label(str(s["name"]), 30))
 		v.add_child(hud.label("%s wall · spot %d · %d books" % [Styles.WALL_NAMES[int(s["wall"])], int(s["slot"]) + 1, Library.shelf_book_count(s["id"])], "SubLabel"))
 		h.add_child(v)
-		var arrow := hud.label("›")
-		arrow.add_theme_font_size_override("font_size", 44)
-		arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(arrow)
+		h.add_child(_chevron())
 		var b := _card_button(h, 120)
 		var sid := str(s["id"])
 		b.pressed.connect(func():
