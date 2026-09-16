@@ -13,7 +13,7 @@ A 3D virtual library for Android, built with Godot 4.7. Walk through styled room
 - **Goodreads import** from the CSV export (My Books → Import and export → Export Library). Filter by exclusive shelf, skip duplicates, covers are fetched in the background. Books are auto-placed; new shelves and rooms are created when a room fills up.
 - **Cover-out display**: any book can stand with its cover facing out.
 - **Four styles**: Cozy Cabin (log walls, fireplace, rug), Modern Loft (brick, concrete, oak), Dark Academia (green wallpaper, walnut wainscot, candlelight), Scandi Bright. Each style textures the walls, floor, ceiling and shelves, tints the UI, and places decor (plants, rug, armchair, lamps, window or a fireplace with animated flames, and a sleeping cat on the rug).
-- **Room management**: rename rooms and shelves, add shelves to free wall spots, add or delete rooms.
+- **Room management** (pencil icon, top right): rename rooms and shelves, add shelves to free wall spots, change the library style, add or delete rooms. In a shelf view the pencil edits that shelf.
 - **Settings** (gear icon, top right): invert horizontal/vertical look, invert shelf panning, look sensitivity, spine text direction, optional Google Books API key, re-fetch covers, reset. Stored in `user://settings.json`.
 
 Everything is stored locally in `user://library.json` with covers in `user://covers/`.

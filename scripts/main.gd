@@ -81,6 +81,11 @@ func _ready() -> void:
 	hud.tray_chip_pressed.connect(_on_tray_chip)
 	hud.settings_pressed.connect(func(): hud.dialogs.open_settings())
 	hud.books_pressed.connect(func(): hud.dialogs.open_all_books())
+	hud.edit_pressed.connect(func():
+		if mode == Mode.SHELF and active_shelf:
+			hud.dialogs.open_shelf_menu(active_shelf.shelf_id)
+		else:
+			hud.dialogs.open_room_menu())
 	Settings.changed.connect(func(key: String):
 		if key == "spine_top_down":
 			_on_structure_changed())

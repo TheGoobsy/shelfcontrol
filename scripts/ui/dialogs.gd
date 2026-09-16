@@ -515,6 +515,9 @@ func open_room_menu() -> void:
 	var add_shelf := hud.button("+ Add a shelf", "AccentButton")
 	add_shelf.pressed.connect(func(): _add_shelf_picker(rid))
 	c.add_child(add_shelf)
+	var style_btn := hud.button("Change library style · %s" % str(Styles.get_style(Library.get_style_id())["name"]))
+	style_btn.pressed.connect(open_style)
+	c.add_child(style_btn)
 	var rename := hud.button("Rename room")
 	rename.pressed.connect(func():
 		prompt("Rename room", str(room["name"]), "Room name", func(t: String): Library.rename_room(rid, t)))

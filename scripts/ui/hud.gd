@@ -14,6 +14,7 @@ signal tray_chip_pressed(book_id: String)
 signal title_pressed()
 signal settings_pressed()
 signal books_pressed()
+signal edit_pressed()
 
 var main: Node
 var style: Dictionary = {}
@@ -330,8 +331,9 @@ func _build_side() -> void:
 	side_box.offset_right = -24
 	side_box.add_theme_constant_override("separation", 14)
 	root.add_child(side_box)
-	_side_button("res://icons/gear.svg", "Settings", settings_pressed)
+	_side_button("res://icons/pencil.svg", "Edit room or shelf", edit_pressed)
 	_side_button("res://icons/list.svg", "All books", books_pressed)
+	_side_button("res://icons/gear.svg", "Settings", settings_pressed)
 
 func _build_bottom() -> void:
 	bottom_bar = PanelContainer.new()
@@ -373,7 +375,10 @@ func _action(text: String, variation := "") -> Button:
 	b.custom_minimum_size = Vector2(0, 92)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.clip_text = true
-	b.add_theme_font_size_override("font_size", 27)
+	b.add_theme_font_size_override("font_size", 28)
+	b.add_theme_color_override("icon_normal_color", fg())
+	b.add_theme_color_override("icon_hover_color", fg())
+	b.add_theme_color_override("icon_pressed_color", fg())
 	actions.add_child(b)
 	return b
 
@@ -382,14 +387,15 @@ func _rebuild_actions() -> void:
 		actions.remove_child(c)
 		c.queue_free()
 	if mode_shelf:
-		_action("‹ Room").pressed.connect(func(): back_pressed.emit())
+		var back := _action("Back to room")
+		back.icon = load("res://icons/chevron_left.svg")
+		back.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		back.add_theme_constant_override("icon_max_width", 30)
+		back.pressed.connect(func(): back_pressed.emit())
 		_action("+ Book", "AccentButton").pressed.connect(func(): add_book_pressed.emit())
-		_action("Shelf…").pressed.connect(func(): shelf_menu_pressed.emit())
 	else:
 		_action("+ Book", "AccentButton").pressed.connect(func(): add_book_pressed.emit())
-		_action("Import").pressed.connect(func(): import_pressed.emit())
-		_action("Style").pressed.connect(func(): style_pressed.emit())
-		_action("Room…").pressed.connect(func(): room_menu_pressed.emit())
+		_action("Import Goodreads").pressed.connect(func(): import_pressed.emit())
 
 func set_room_mode(room_name: String, subtitle: String, has_multiple: bool) -> void:
 	mode_shelf = false
