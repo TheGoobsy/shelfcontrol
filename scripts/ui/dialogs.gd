@@ -383,6 +383,8 @@ func open_style() -> void:
 		c.add_child(b)
 
 func _spec_color(spec: Dictionary) -> Color:
+	if spec.has("pbr"):
+		return spec.get("tint", Color.WHITE) * Color(0.50, 0.36, 0.26)
 	if spec.has("color"):
 		return spec["color"]
 	if spec.has("color_a"):
@@ -543,6 +545,9 @@ func open_room_menu() -> void:
 	var add_shelf := hud.button("+ Add a shelf", "AccentButton")
 	add_shelf.pressed.connect(func(): _add_shelf_picker(rid))
 	c.add_child(add_shelf)
+	var type_btn := hud.button("Room type · %s" % str(Styles.room_type(str(room.get("type", "living")))["name"]))
+	type_btn.pressed.connect(func(): open_room_type(rid))
+	c.add_child(type_btn)
 	var style_btn := hud.button("Change library style · %s" % str(Styles.get_style(Library.get_style_id())["name"]))
 	style_btn.pressed.connect(open_style)
 	c.add_child(style_btn)
@@ -564,6 +569,28 @@ func open_room_menu() -> void:
 			Library.remove_room(rid)
 			hud.toast("Room deleted · books are in the tray")))
 	c.add_child(del)
+
+## Furniture set for one room; the library style (materials, colours) stays the same.
+func open_room_type(rid: String) -> void:
+	var room := Library.get_room(rid)
+	var c := hud.open_sheet("Room type · %s" % str(room.get("name", "")), 0.7)
+	c.add_child(hud.label("The style sets walls, floor and shelves for the whole library. The room type picks the furniture in this room.", "MutedLabel"))
+	var current := str(room.get("type", "living"))
+	for id in Styles.room_type_ids():
+		var rt: Dictionary = Styles.room_type(id)
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		v.add_theme_constant_override("separation", 2)
+		v.add_child(_bold_label(str(rt["name"]) + ("   (current)" if id == current else ""), 32))
+		v.add_child(hud.label(str(rt.get("blurb", "")), "SubLabel"))
+		var b := _card_button(v, 130)
+		var tid := str(id)
+		b.pressed.connect(func():
+			Library.set_room_type(rid, tid)
+			hud.close_sheet()
+			hud.toast("%s is now a %s" % [str(room.get("name", "Room")), str(rt["name"]).to_lower()]))
+		c.add_child(b)
 
 func _add_shelf_picker(rid: String) -> void:
 	var c := hud.open_sheet("Add a shelf", 0.8)
@@ -693,6 +720,15 @@ func open_book_detail(id: String) -> void:
 		ml.max_lines_visible = 2
 		ml.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		v.add_child(ml)
+	var codes: Array = []
+	if str(b.get("isbn13", "")) != "":
+		codes.append("ISBN-13 " + str(b["isbn13"]))
+	if str(b.get("isbn", "")) != "":
+		codes.append("ISBN-10 " + str(b["isbn"]))
+	if not codes.is_empty():
+		var cl := hud.label(" · ".join(PackedStringArray(codes)), "SmallLabel")
+		cl.selection_enabled = true
+		v.add_child(cl)
 	var rating := int(b.get("rating", 0))
 	var avg := float(b.get("avg_rating", 0.0))
 	var rating_bits: Array = []
@@ -813,6 +849,22 @@ func open_book_detail(id: String) -> void:
 		hud.close_sheet()
 		hud.toast("Looking for a cover…"))
 	g.add_child(fetch)
+	var refresh := hud.button("Refresh details")
+	refresh.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	refresh.pressed.connect(func():
+		refresh.disabled = true
+		refresh.text = "Refreshing…"
+		var err: String = await BookAPI.refresh_book(id)
+		if err != "":
+			hud.toast(err)
+			if is_instance_valid(refresh):
+				refresh.disabled = false
+				refresh.text = "Refresh details"
+			return
+		hud.toast("Details updated from the catalogue")
+		if hud.is_dialog_open():
+			open_book_detail(id))
+	g.add_child(refresh)
 	var edit := hud.button("Edit details")
 	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	edit.pressed.connect(func(): _edit_book(id))

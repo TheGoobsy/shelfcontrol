@@ -135,6 +135,47 @@ func _search_openlibrary(q: String) -> Array:
 			out.append(info)
 	return out
 
+## Re-fetches catalogue data for a book (by ISBN first, then title + author) and merges it in.
+## Personal fields (rating, status, review, tags, series, date read, face-out) are never touched.
+## Returns "" on success or a short reason for a toast.
+func refresh_book(id: String) -> String:
+	var b := Library.get_book(id)
+	if b.is_empty():
+		return "Book not found"
+	var info: Dictionary = {}
+	for key in ["isbn13", "isbn"]:
+		var code := str(b.get(key, "")).strip_edges()
+		if code != "":
+			info = await lookup_isbn(code)
+			if not info.is_empty():
+				break
+	if info.is_empty():
+		var q := str(b.get("title", ""))
+		var authors: Array = b.get("authors", [])
+		if not authors.is_empty():
+			q += " " + str(authors[0])
+		var results := await search(q)
+		if not results.is_empty():
+			info = results[0]
+	if info.is_empty():
+		return "Nothing found online for this book"
+	var fields := {}
+	for key in ["title", "authors", "pages", "year", "publisher", "description", "genres", "language", "avg_rating", "ratings_count", "isbn", "isbn13", "cover_url", "source"]:
+		if not info.has(key):
+			continue
+		var v = info[key]
+		var empty: bool = (typeof(v) == TYPE_STRING and str(v).strip_edges() == "") or (typeof(v) == TYPE_ARRAY and v.is_empty()) or ((typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT) and float(v) <= 0.0)
+		if empty:
+			continue
+		if key == "genres":
+			v = Library._str_list(v, 6)
+		fields[key] = v
+	var old_cover := str(b.get("cover_url", ""))
+	Library.update_book(id, fields)
+	if str(b.get("cover_file", "")) == "" or (fields.has("cover_url") and fields["cover_url"] != old_cover):
+		request_cover(id, true)
+	return ""
+
 func lookup_isbn(isbn: String) -> Dictionary:
 	isbn = isbn.strip_edges()
 	if isbn == "":

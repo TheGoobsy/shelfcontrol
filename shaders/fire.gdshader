@@ -10,7 +10,8 @@ uniform float intensity = 1.6;
 void fragment() {
 	highp vec2 uv = UV;
 	float t = TIME * speed;
-	float n = fbm(vec2(uv.x * 3.0 + sin(t * 0.7) * 0.2, uv.y * 3.5 - t));
+	// UV y grows downwards on a QuadMesh, so adding time makes the tongues travel upwards
+	float n = fbm(vec2(uv.x * 3.0 + sin(t * 0.7) * 0.2, uv.y * 3.5 + t));
 	float bottom = uv.y;
 	float center = 1.0 - abs(uv.x - 0.5) * 2.0;
 	float shape = bottom * center;
