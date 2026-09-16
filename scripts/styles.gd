@@ -179,6 +179,22 @@ func wall_transform(wall: int, along: float, depth: float) -> Transform3D:
 			pos = Vector3(-ROOM_W / 2.0 + depth / 2.0, 0.0, -along)
 	return Transform3D(basis, pos)
 
+## Where a door goes on each wall, in order of preference: never the centre slot of the long walls
+## (window / fireplace) and away from the armchair corner in the south-east.
+const DOOR_SLOT_PREFS := {0: [3, 1, 4, 0], 1: [1, 0, 2], 2: [1, 3, 0, 4], 3: [1, 0, 2]}
+
+## Exit wall for room i in the chain: east, then north, alternating, so consecutive rooms always
+## form an L and never a straight corridor. The matching entry wall of the next room is opposite.
+func exit_wall(index: int) -> int:
+	return 1 if index % 2 == 0 else 0
+
+func opposite_wall(wall: int) -> int:
+	return (wall + 2) % 4
+
+## Camera yaw that looks away from a wall, into the room (used after walking through a door).
+func facing_from_wall(wall: int) -> float:
+	return PI - float(wall) * PI / 2.0
+
 ## Shelves sorted clockwise around the room (north wall left→right, then east, south, west),
 ## so "next" always means the neighbouring bookcase rather than creation order.
 func around_room(shelves: Array) -> Array:

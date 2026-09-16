@@ -16,6 +16,7 @@ A 3D virtual library for Android, built with Godot 4.7. Walk through styled room
 - **Reading table**: a coffee table on the rug holds the books whose status is *Reading*, stacked cover-up. Each of those books keeps its shelf spot, drawn as a pale ghost so you know where it belongs. Tap the table and the camera flies in and opens the list (and flies back out when you close it); the detail sheet has *Start reading* / *Finished reading* and *Show on shelf*.
 - **Archive box**: a cardboard box in the corner holds *Archived* books. Archiving takes a book off its shelf without deleting it; *Restore* puts it back on the first free spot. Tap the box and the camera flies in and opens the list.
 - **Five styles**: Cozy Cabin (procedural log walls, fireplace, rug), Timber Lodge (photo textures from Poly Haven: stacked timber walls, worn pine floor, plank ceiling, dark hardwood shelves with the grain following each board), Modern Loft (brick, concrete, oak), Dark Academia (green wallpaper, walnut wainscot, candlelight), Scandi Bright. Each style textures the walls, floor, ceiling and shelves, tints the UI, and places decor (plants, rug, armchair, lamps, window or a fireplace with animated flames, and a sleeping cat on the rug).
+- **Doors between rooms**: rooms form a chain and each pair is joined by a door with a name plate. The exit alternates east, north, east… so consecutive rooms always form an L, never a corridor; a room has at most two doors (in and out). Tap a door to swing it open and walk into the next room, arriving with your back to it. Door spots are reserved: shelves can't be added there, and a shelf already standing on one is moved to a free spot.
 - **Room types** (per room, pencil icon → Room type): Living room (the style's own furniture), Office (writing desk with banker's lamp, swivel chair, globe), Bedroom (bed, nightstand lamp, rug) and Fantasy library (candelabras, lectern with an open tome, glowing crystal ball, candle chandelier). The style still decides materials and colours.
 - **Room management** (pencil icon, top right): rename rooms and shelves, add shelves to free wall spots, change the room type or the library style, add or delete rooms. In a shelf view the pencil edits that shelf.
 - **Night mode** (Settings → Scene): off, on, or automatic from 19:00 to 07:00. Starry sky and moon in the window, faint moonlight, lamps and fire carry the room.
@@ -65,7 +66,7 @@ Screenshot harness (used during development):
 
 ```bash
 godot --path . --resolution 540x1080 -- --demo --mode=shelf --shot=/tmp/shelf.png
-# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, window, box, focus_table, focus_box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
+# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, window, door, door_go, box, focus_table, focus_box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, add, import, style, room, move, settings, books, reading, archive
 # add --style=timber_lodge (or any style id) to render a different style
 # add --night to render with night mode on
 godot --headless --path . -- --demo --apitest

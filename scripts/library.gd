@@ -89,6 +89,7 @@ func _migrate() -> void:
 		else:
 			i += 1
 	_settle_archived()
+	_assign_doors()
 
 func save() -> void:
 	if no_save or _save_pending:
@@ -150,8 +151,9 @@ func room_index(rid: String) -> int:
 	return -1
 
 func add_room(room_name: String, emit := true, room_type := "living") -> String:
-	var r := {"id": _new_id("r"), "name": room_name, "shelves": [], "type": room_type}
+	var r := {"id": _new_id("r"), "name": room_name, "shelves": [], "type": room_type, "doors": []}
 	data["rooms"].append(r)
+	_assign_doors()
 	if emit:
 		structure_changed.emit()
 		save()
@@ -186,6 +188,7 @@ func remove_room(rid: String) -> void:
 	if data["rooms"].is_empty():
 		var nrid := add_room("Living Room", false)
 		add_shelf(nrid, 0, 1, false)
+	_assign_doors()
 	structure_changed.emit()
 	tray_changed.emit()
 	save()
@@ -219,7 +222,65 @@ func is_slot_free(rid: String, wall: int, slot: int) -> bool:
 	for s in r.get("shelves", []):
 		if int(s["wall"]) == wall and int(s["slot"]) == slot:
 			return false
+	for d in r.get("doors", []):
+		if int(d["wall"]) == wall and int(d["slot"]) == slot:
+			return false
 	return true
+
+# ---------------------------------------------------------------- doors
+
+## Rooms form a chain; room i and i+1 are joined by a door pair. Door slots are reserved, so a
+## shelf standing on a chosen slot is moved to a free spot. Called whenever the room list changes.
+func _assign_doors() -> void:
+	var rooms: Array = data["rooms"]
+	for r in rooms:
+		r["doors"] = []
+	for i in rooms.size() - 1:
+		var a: Dictionary = rooms[i]
+		var b: Dictionary = rooms[i + 1]
+		var ew: int = Styles.exit_wall(i)
+		var nw: int = Styles.opposite_wall(ew)
+		a["doors"].append({"wall": ew, "slot": _pick_door_slot(a, ew), "to": b["id"]})
+		b["doors"].append({"wall": nw, "slot": _pick_door_slot(b, nw), "to": a["id"]})
+
+func _pick_door_slot(room: Dictionary, wall: int) -> int:
+	var prefs: Array = Styles.DOOR_SLOT_PREFS[wall]
+	for slot in prefs:
+		if _shelf_at(room, wall, slot).is_empty() and _door_at(room, wall, slot).is_empty():
+			return slot
+	# every candidate has a shelf: take the first and move that shelf somewhere free
+	var slot: int = prefs[0]
+	var sh := _shelf_at(room, wall, slot)
+	if not sh.is_empty():
+		for w in 4:
+			for sl in Styles.slot_count(w):
+				if (w == wall and sl == slot) or not _door_at(room, w, sl).is_empty() or not _shelf_at(room, w, sl).is_empty():
+					continue
+				if w == wall and prefs.has(sl):
+					continue
+				sh["wall"] = w
+				sh["slot"] = sl
+				return slot
+	return slot
+
+func _shelf_at(room: Dictionary, wall: int, slot: int) -> Dictionary:
+	for s in room.get("shelves", []):
+		if int(s["wall"]) == wall and int(s["slot"]) == slot:
+			return s
+	return {}
+
+func _door_at(room: Dictionary, wall: int, slot: int) -> Dictionary:
+	for d in room.get("doors", []):
+		if int(d["wall"]) == wall and int(d["slot"]) == slot:
+			return d
+	return {}
+
+## The door in `rid` that leads to `to_rid`, or {}.
+func door_to(rid: String, to_rid: String) -> Dictionary:
+	for d in get_room(rid).get("doors", []):
+		if str(d["to"]) == to_rid:
+			return d
+	return {}
 
 func free_slots(rid: String) -> Array:
 	var out: Array = []

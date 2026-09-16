@@ -8,6 +8,7 @@ var shelves: Dictionary = {}   # sid -> Shelf3D
 var env: WorldEnvironment
 var table: Node3D
 var archive: Node3D
+var doors: Dictionary = {}   # target room id -> door Node3D
 
 const TABLE_POS := Vector3(0.35, 0, 0.15)
 const ARCHIVE_POS := Vector3(-1.9, 0, 2.5)
@@ -24,10 +25,12 @@ func build(r: Dictionary, st: Dictionary) -> void:
 		remove_child(c)
 		c.queue_free()
 	shelves.clear()
+	doors.clear()
 	_build_environment()
 	_build_shell()
 	_build_lights()
 	_build_shelves()
+	_build_doors()
 	_build_decor()
 	_build_props()
 
@@ -109,6 +112,20 @@ func _build_shelves() -> void:
 		sh.transform = Styles.shelf_transform(int(s["wall"]), int(s["slot"]))
 		sh.setup(s, style)
 		shelves[str(s["id"])] = sh
+
+func _build_doors() -> void:
+	for d in room.get("doors", []):
+		var target := Library.get_room(str(d["to"]))
+		var dn := Decor.door(style, str(target.get("name", "")), str(d["to"]))
+		add_child(dn)
+		dn.transform = Styles.wall_transform(int(d["wall"]), Styles.slot_offset(int(d["wall"]), int(d["slot"])), 0.12)
+		doors[str(d["to"])] = dn
+
+## Target room id for a tapped door body, or "".
+func door_by_body(body: Object) -> String:
+	if body == null or not body.has_meta("door_to"):
+		return ""
+	return str(body.get_meta("door_to"))
 
 func occupied(wall: int, slot: int) -> bool:
 	for s in room.get("shelves", []):

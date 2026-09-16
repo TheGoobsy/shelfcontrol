@@ -155,8 +155,29 @@ func current_room() -> Dictionary:
 func current_room_id() -> String:
 	return str(current_room().get("id", ""))
 
-func _load_room(index: int) -> void:
+## Swing the door open, fade, and arrive in the next room facing away from the door you came through.
+func _go_through_door(to_rid: String) -> void:
+	var idx := Library.room_index(to_rid)
+	if idx < 0 or rig.moving:
+		return
+	var from_rid := current_room_id()
+	var dn: Node3D = room3d.doors.get(to_rid)
+	if dn != null:
+		var hinge := dn.get_node_or_null("Hinge")
+		if hinge != null:
+			var tw := create_tween()
+			tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			tw.tween_property(hinge, "rotation:y", -1.35, 0.4)
+			await get_tree().create_timer(0.28).timeout
+	var back := Library.door_to(to_rid, from_rid)
+	var face: float = Styles.facing_from_wall(int(back["wall"])) if not back.is_empty() else yaw
+	_fade_to(func(): _load_room(idx, face))
+
+func _load_room(index: int, face_yaw := INF) -> void:
 	room_index = clamp(index, 0, max(0, Library.room_count() - 1))
+	if is_finite(face_yaw):
+		yaw = face_yaw
+		pitch = -0.02
 	var room := current_room()
 	room3d.build(room, style)
 	mode = Mode.ROOM
@@ -482,6 +503,10 @@ func _on_tap(pos: Vector2) -> void:
 		var prop := room3d.prop_by_body(col)
 		if prop != "":
 			_focus_prop(prop)
+			return
+		var door_to := room3d.door_by_body(col)
+		if door_to != "":
+			_go_through_door(door_to)
 		return
 	if active_shelf == null:
 		return
@@ -700,6 +725,24 @@ func _run_shot() -> void:
 		"window":
 			var eye := Vector3(0.4, 1.5, -0.6)
 			rig.snap(eye, CameraRig.look_basis(eye, Vector3(0, 1.7, -3.0)), 50.0)
+		"door":
+			# stand in the room looking at the east wall door
+			yaw = -PI / 2.0
+			pitch = -0.02
+			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+		"door_go":
+			yaw = -PI / 2.0
+			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+			for i in 5:
+				await get_tree().process_frame
+			var d: Node3D = room3d.doors.values()[0]
+			var p := rig.cam.unproject_position(d.global_position + Vector3(0, 1.0, 0))
+			_send_mouse(p, true)
+			await get_tree().process_frame
+			_send_mouse(p, false)
+			for i in 90:
+				await get_tree().process_frame
+			print("DOOR_RESULT room=", current_room().get("name", ""), " yaw=%.2f" % yaw)
 		"chair":
 			var eye := Vector3(0.0, 1.3, -0.5)
 			rig.snap(eye, CameraRig.look_basis(eye, Vector3(1.75, 0.5, 1.25)), 45.0)

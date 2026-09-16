@@ -747,3 +747,60 @@ static func chandelier(style: Dictionary) -> Node3D:
 	light.position = Vector3(0, -0.62, 0)
 	root.add_child(light)
 	return root
+
+# ---------------------------------------------------------------- doors
+
+## A closed panel door in a wall slot, origin on the floor at the wall, +z into the room.
+## The slab hangs on the child "Hinge" so it can swing open; the plate names the room beyond.
+static func door(style: Dictionary, plate_text: String, to_rid: String) -> Node3D:
+	var root := Node3D.new()
+	var wood := Materials.shelf_wood(style)
+	var trim: Color = style.get("trim", Color(0.3, 0.18, 0.1))
+	var slab_mat := Materials.std(trim.lightened(0.05), 0.6)
+	var brass := Materials.std(Color(0.78, 0.62, 0.32), 0.3, 0.85)
+	const W := 0.95
+	const H := 2.05
+	const J := 0.08
+	# jambs and head, slightly proud of the wall
+	box(root, Vector3(J, H + J, 0.14), Vector3(-W / 2.0 - J / 2.0, (H + J) / 2.0, 0.0), wood)
+	box(root, Vector3(J, H + J, 0.14), Vector3(W / 2.0 + J / 2.0, (H + J) / 2.0, 0.0), wood)
+	box(root, Vector3(W + 2.0 * J, J, 0.14), Vector3(0, H + J / 2.0, 0.0), wood)
+	# dark reveal behind the slab so an open door shows depth, not the wall
+	box(root, Vector3(W, H, 0.02), Vector3(0, H / 2.0, -0.05), Materials.std(Color(0.03, 0.02, 0.02), 1.0))
+	var hinge := Node3D.new()
+	hinge.name = "Hinge"
+	hinge.position = Vector3(-W / 2.0, 0, 0.02)
+	root.add_child(hinge)
+	var slab := box(hinge, Vector3(W - 0.01, H - 0.01, 0.045), Vector3(W / 2.0, H / 2.0, 0), slab_mat)
+	slab.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	# two recessed panels
+	var panel := Materials.std(trim.darkened(0.12), 0.65)
+	box(hinge, Vector3(W - 0.24, 0.78, 0.012), Vector3(W / 2.0, 1.45, 0.028), panel)
+	box(hinge, Vector3(W - 0.24, 0.62, 0.012), Vector3(W / 2.0, 0.52, 0.028), panel)
+	# handle on the free edge
+	cyl(hinge, 0.012, 0.012, 0.11, Vector3(W - 0.09, 1.02, 0.06), brass, Vector3(0, 0, PI / 2.0))
+	sphere(hinge, 0.02, Vector3(W - 0.09, 1.02, 0.045), brass)
+	# name plate above the door
+	var plate := box(root, Vector3(0.74, 0.17, 0.02), Vector3(0, H + J + 0.15, 0.03), brass)
+	plate.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var lbl := Label3D.new()
+	lbl.text = plate_text if plate_text.length() <= 14 else plate_text.left(13).strip_edges() + "…"
+	lbl.font = Book3D._font()
+	lbl.pixel_size = 0.0005
+	lbl.font_size = 150
+	lbl.modulate = Color(0.16, 0.11, 0.06)
+	lbl.position = Vector3(0, H + J + 0.15, 0.045)
+	lbl.alpha_cut = Label3D.ALPHA_CUT_DISCARD
+	root.add_child(lbl)
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(W + 2.0 * J, H + 0.5, 0.3)
+	cs.shape = shape
+	cs.position = Vector3(0, (H + 0.5) / 2.0, 0.05)
+	body.add_child(cs)
+	body.set_meta("door_to", to_rid)
+	root.add_child(body)
+	return root

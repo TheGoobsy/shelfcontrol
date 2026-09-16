@@ -546,6 +546,12 @@ func open_room_menu() -> void:
 			hud.close_sheet()
 			main().enter_shelf_by_id(sid))
 		c.add_child(b)
+	var doors: Array = room.get("doors", [])
+	if not doors.is_empty():
+		var parts: Array = []
+		for d in doors:
+			parts.append("%s wall → %s" % [Styles.WALL_NAMES[int(d["wall"])], str(Library.get_room(str(d["to"])).get("name", "?"))])
+		c.add_child(hud.label("Doors: " + " · ".join(PackedStringArray(parts)) + " (those spots stay free of shelves)", "SubLabel"))
 	var add_shelf := hud.button("+ Add a shelf", "AccentButton")
 	add_shelf.pressed.connect(func(): _add_shelf_picker(rid))
 	c.add_child(add_shelf)
