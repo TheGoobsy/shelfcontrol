@@ -530,15 +530,17 @@ func open_room_menu() -> void:
 	if not door_parts.is_empty():
 		c.add_child(hud.label(tr("Doors: ") + " · ".join(PackedStringArray(door_parts)), "SubLabel"))
 
-	var this_room := hud.section(c, "This room")
-	this_room.add_child(hud.label("Furniture", "SubLabel"))
+	c.add_child(hud.spacer(6))
+	c.add_child(hud.label("Furniture", "SectionLabel"))
 	var type_opts: Array = []
 	for tid in Styles.room_type_ids():
 		type_opts.append([tid, Styles.room_type(tid)["name"]])
-	hud.segmented(this_room, type_opts, str(room.get("type", "living")), func(k):
+	hud.segmented(c, type_opts, str(room.get("type", "living")), func(k):
 		Library.set_room_type(rid, k)
 		hud.toast(tr("%s is now a %s") % [str(room.get("name", "")), tr(Styles.room_type(k)["name"]).to_lower()]), true)
-	hud.tiles(this_room, [
+	c.add_child(hud.spacer(6))
+	c.add_child(hud.label("This room", "SectionLabel"))
+	hud.tiles(c, [
 		{"label": "Add shelf", "icon": "shelf", "accent": true, "cb": func(): _add_shelf_picker(rid)},
 		{"label": "Rename", "icon": "pencil", "cb": func():
 			prompt("Rename room", str(room["name"]), "Room name", func(t: String): Library.rename_room(rid, t))},
