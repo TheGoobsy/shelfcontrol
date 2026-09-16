@@ -725,6 +725,13 @@ func _run_shot() -> void:
 		"window":
 			var eye := Vector3(0.4, 1.5, -0.6)
 			rig.snap(eye, CameraRig.look_basis(eye, Vector3(0, 1.7, -3.0)), 50.0)
+		"attic":
+			_load_room(2, PI / 2.0)
+			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+		"attic_n":
+			_load_room(2, 0.0)
+			pitch = -0.05
+			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
 		"door":
 			# stand in the room looking at the east wall door
 			yaw = -PI / 2.0

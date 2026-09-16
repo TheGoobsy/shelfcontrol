@@ -108,6 +108,9 @@ static func populate() -> void:
 				break
 		if not placed:
 			Library.auto_place(id, room["id"], true, true)
+	# a third room to show a chain turn: entered from the north, so its window moves to the west wall
+	var attic := Library.add_room("Attic", false, "bedroom")
+	Library.add_shelf(attic, 1, 0, false, "Keepsakes")
 	# a couple of books in the tray
 	var t1 := Library.add_book({"title": "Exhalation", "authors": ["Ted Chiang"], "pages": 350, "year": "2019", "source": "demo"})
 	var t2 := Library.add_book({"title": "The Buried Giant", "authors": ["Kazuo Ishiguro"], "pages": 317, "year": "2015", "source": "demo"})

@@ -239,7 +239,7 @@ func _assign_doors() -> void:
 		var a: Dictionary = rooms[i]
 		var b: Dictionary = rooms[i + 1]
 		var ew: int = Styles.exit_wall(i)
-		var nw: int = Styles.entry_wall()
+		var nw: int = Styles.opposite_wall(ew)
 		a["doors"].append({"wall": ew, "slot": _pick_door_slot(a, ew), "to": b["id"]})
 		b["doors"].append({"wall": nw, "slot": _pick_door_slot(b, nw), "to": a["id"]})
 

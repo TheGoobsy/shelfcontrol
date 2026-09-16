@@ -150,11 +150,13 @@ func _build_decor() -> void:
 					f.transform = Styles.wall_transform(2, 0.0, 0.5)
 					has_fireplace = true
 			"window":
-				var cs: int = Styles.center_slot(0)
-				if cs >= 0 and not occupied(0, cs):
+				# the window sits on the north wall unless a door took it, then on a door-free side wall
+				var ww: int = Styles.window_wall(room)
+				var cs: int = Styles.center_slot(ww) if ww >= 0 else -1
+				if cs >= 0 and not occupied(ww, cs):
 					var w := Decor.window(style)
 					add_child(w)
-					w.transform = Styles.wall_transform(0, 0.0, 0.1)
+					w.transform = Styles.wall_transform(ww, 0.0, 0.1)
 			"rug":
 				var r := Decor.rug(style)
 				add_child(r)

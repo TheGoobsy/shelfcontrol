@@ -181,16 +181,26 @@ func wall_transform(wall: int, along: float, depth: float) -> Transform3D:
 
 ## Where a door goes on each wall, in order of preference: never the centre slot of the long walls
 ## (window / fireplace) and away from the armchair corner in the south-east.
-const DOOR_SLOT_PREFS := {1: [1, 0, 2], 2: [1, 3, 0, 4], 3: [1, 0, 2]}
+const DOOR_SLOT_PREFS := {0: [3, 1, 4, 0], 1: [1, 0, 2], 2: [1, 3, 0, 4], 3: [1, 0, 2]}
 
 ## Exit wall for room i in the chain: east, then south, alternating, so consecutive rooms always
-## turn (an L) and never line up. The north wall keeps the window and never gets a door.
+## turn (an L) and never line up. You arrive through the wall opposite the one you left by, so the
+## geometry stays honest; a room whose entry lands on the north wall moves its window instead.
 func exit_wall(index: int) -> int:
 	return 1 if index % 2 == 0 else 2
 
-## You always arrive through the west wall.
-func entry_wall() -> int:
-	return 3
+func opposite_wall(wall: int) -> int:
+	return (wall + 2) % 4
+
+## The wall carrying the window: north unless a door is there, then west, then east.
+func window_wall(room: Dictionary) -> int:
+	var used: Array = []
+	for d in room.get("doors", []):
+		used.append(int(d["wall"]))
+	for w in [0, 3, 1]:
+		if not used.has(w):
+			return w
+	return -1
 
 ## Camera yaw that looks away from a wall, into the room (used after walking through a door).
 func facing_from_wall(wall: int) -> float:
