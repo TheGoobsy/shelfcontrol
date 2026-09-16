@@ -239,6 +239,7 @@ func _on_placement_changed(shelf_ids: Array) -> void:
 		_update_room_hud()
 
 func _on_book_updated(id: String) -> void:
+	room3d.refresh_props()
 	if drag_book and drag_book.book_id == id:
 		return
 	var sh := room3d.shelf_for_book(id)
@@ -471,9 +472,16 @@ func _on_tap(pos: Vector2) -> void:
 	if rig.moving:
 		return
 	if mode == Mode.ROOM:
-		var sh := _raycast_shelf(pos)
+		var col := _raycast_collider(pos)
+		var sh := room3d.shelf_by_body(col)
 		if sh:
 			enter_shelf(sh)
+			return
+		match room3d.prop_by_body(col):
+			"reading":
+				hud.dialogs.open_reading_list()
+			"archive":
+				hud.dialogs.open_archive()
 		return
 	if active_shelf == null:
 		return
@@ -503,14 +511,14 @@ func _on_tap(pos: Vector2) -> void:
 		_last_tap_time = now
 		_last_tap_pos = pos
 
-func _raycast_shelf(pos: Vector2) -> Shelf3D:
+func _raycast_collider(pos: Vector2) -> Object:
 	var from := rig.cam.project_ray_origin(pos)
 	var to := from + rig.cam.project_ray_normal(pos) * 40.0
 	var q := PhysicsRayQueryParameters3D.create(from, to, 1)
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	if hit.is_empty():
 		return null
-	return room3d.shelf_by_body(hit.get("collider"))
+	return hit.get("collider")
 
 func _on_tray_chip(id: String) -> void:
 	if hud.placing_id == id:
@@ -636,6 +644,29 @@ func _run_shot() -> void:
 			rig.snap(Vector3(0.9, 1.3, -0.6), CameraRig.look_basis(Vector3(0.9, 1.3, -0.6), Vector3(0, 0.9, 3.0)), 55.0)
 		"cat":
 			rig.snap(Vector3(0.6, 1.0, -0.4), CameraRig.look_basis(Vector3(0.6, 1.0, -0.4), Vector3(-0.75, 0.1, 0.85)), 40.0)
+		"table":
+			var eye := Vector3(1.1, 1.25, 1.35)
+			rig.snap(eye, CameraRig.look_basis(eye, Room3D.TABLE_POS + Vector3(0, 0.45, 0)), 42.0)
+		"box":
+			var eye := Vector3(-0.7, 1.1, 0.9)
+			rig.snap(eye, CameraRig.look_basis(eye, Room3D.ARCHIVE_POS + Vector3(0, 0.15, 0)), 38.0)
+		"reading":
+			hud.dialogs.open_reading_list()
+		"archive":
+			hud.dialogs.open_archive()
+		"ghost":
+			# close-up of the row holding the first book that is being read
+			var reading := Library.reading_ids()
+			var loc := Library.find_location(reading[0]) if not reading.is_empty() else {}
+			if loc.has("shelf"):
+				enter_shelf_by_id(str(loc["shelf"]))
+				for i in 40:
+					await get_tree().process_frame
+				shelf_zoom = 0.5
+				var sh := active_shelf
+				shelf_pan = Vector2(-0.25, sh.rows_y[int(loc["row"])] + 0.12 - Styles.SHELF_H / 2.0)
+				_clamp_pan()
+				_update_shelf_camera(false)
 		"closeup":
 			var first: Dictionary = current_room()["shelves"][0]
 			enter_shelf(room3d.shelves[first["id"]])

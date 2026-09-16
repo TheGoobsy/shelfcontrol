@@ -6,6 +6,13 @@ var room: Dictionary = {}
 var style: Dictionary = {}
 var shelves: Dictionary = {}   # sid -> Shelf3D
 var env: WorldEnvironment
+var table: Node3D
+var archive: Node3D
+
+const TABLE_POS := Vector3(0.35, 0, 0.15)
+const ARCHIVE_POS := Vector3(-1.9, 0, 2.5)
+const TABLE_STACK_MAX := 6
+const ARCHIVE_SHOW_MAX := 10
 
 const PLANT_CORNERS := [Vector3(-3.05, 0, -2.05), Vector3(3.05, 0, -2.05), Vector3(-3.05, 0, 2.1), Vector3(3.1, 0, 2.5)]
 
@@ -21,6 +28,7 @@ func build(r: Dictionary, st: Dictionary) -> void:
 	_build_lights()
 	_build_shelves()
 	_build_decor()
+	_build_props()
 
 func _box(size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -167,6 +175,67 @@ func _build_decor() -> void:
 				var g := Decor.globe(style)
 				add_child(g)
 				g.position = Vector3(-2.55, 0, 1.9)
+
+## Functional props present in every room: the reading table and the archive box.
+func _build_props() -> void:
+	table = Decor.reading_table(style)
+	add_child(table)
+	table.position = TABLE_POS
+	table.rotation.y = 0.12
+	archive = Decor.archive_box(style)
+	add_child(archive)
+	archive.position = ARCHIVE_POS
+	var dir := Vector3(0, 0, 0.3) - ARCHIVE_POS
+	archive.rotation.y = atan2(dir.x, dir.z)
+	refresh_props()
+
+## Rebuilds the stack on the table and the books in the archive box from the library's statuses.
+func refresh_props() -> void:
+	if table == null or archive == null:
+		return
+	var stack: Node3D = table.get_node("Stack")
+	for c in stack.get_children():
+		c.queue_free()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var y := 0.0
+	var reading := Library.reading_ids()
+	for i in mini(reading.size(), TABLE_STACK_MAX):
+		var b := Library.get_book(reading[i])
+		var b3 := Book3D.new()
+		b3.flat = true
+		b3.setup(b)
+		stack.add_child(b3)
+		# lie flat, cover up: roll 90° so the cover normal (+x) points up
+		b3.rotation = Vector3(0, rng.randf_range(-0.14, 0.14), PI / 2.0)
+		b3.position = Vector3(b3.dims.y / 2.0 + rng.randf_range(-0.02, 0.02), y + b3.dims.x / 2.0, rng.randf_range(-0.015, 0.015))
+		y += b3.dims.x
+	var contents: Node3D = archive.get_node("Contents")
+	for c in contents.get_children():
+		c.queue_free()
+	var archived := Library.archived_ids()
+	var shown: Array = []
+	var total := 0.0
+	for i in mini(archived.size(), ARCHIVE_SHOW_MAX):
+		var b := Library.get_book(archived[i])
+		var t := float(b.get("thickness", 0.03)) + 0.006
+		if total + t > 0.44:
+			break
+		shown.append(b)
+		total += t
+	var x := -total / 2.0
+	for b in shown:
+		var b3 := Book3D.new()
+		b3.setup(b)
+		contents.add_child(b3)
+		b3.position = Vector3(x + b3.dims.x / 2.0, 0.0, 0.0)
+		b3.rotation = Vector3(0, 0, rng.randf_range(-0.06, 0.06))
+		x += b3.dims.x + 0.006
+
+func prop_by_body(body: Object) -> String:
+	if body == null or not body.has_meta("prop"):
+		return ""
+	return str(body.get_meta("prop"))
 
 func shelf_by_body(body: Object) -> Shelf3D:
 	if body == null or not body.has_meta("shelf_id"):

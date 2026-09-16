@@ -710,7 +710,11 @@ func open_book_detail(id: String) -> void:
 	if status != "":
 		v.add_child(hud.label(status + (" · finished " + read if read != "" else ""), "SmallLabel"))
 	v.add_child(hud.spacer(4))
-	v.add_child(hud.label("On: " + Library.location_label(Library.find_location(id)), "SmallLabel"))
+	var loc := Library.find_location(id)
+	var where := "In the archive box" if str(b.get("status", "")) == "archived" else "On: " + Library.location_label(loc, id)
+	if str(b.get("status", "")) == "currently-reading":
+		where += " · also on the reading table"
+	v.add_child(hud.label(where, "SmallLabel"))
 	h.add_child(v)
 	c.add_child(h)
 	var chips: Array = []
@@ -747,30 +751,61 @@ func open_book_detail(id: String) -> void:
 	g.columns = 2
 	g.add_theme_constant_override("h_separation", 12)
 	g.add_theme_constant_override("v_separation", 12)
-	var face := hud.button("Spine out" if b.get("face_out", false) else "Cover out")
-	face.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	face.pressed.connect(func():
-		var want := not bool(b.get("face_out", false))
-		var loc := Library.find_location(id)
-		if want and loc.has("shelf"):
-			var extra := float(b["width"]) - float(b["thickness"])
-			if Library.row_free_width(loc["shelf"], loc["row"]) < extra:
-				hud.toast("Not enough space on this row to turn the cover out")
-				return
-		Library.update_book(id, {"face_out": want})
-		hud.close_sheet())
-	g.add_child(face)
-	var mv := hud.button("Move to…")
-	mv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mv.pressed.connect(func(): open_move_picker(id))
-	g.add_child(mv)
-	var tray := hud.button("Put in tray")
-	tray.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tray.pressed.connect(func():
-		Library.to_tray(id)
-		hud.close_sheet()
-		hud.toast("“%s” is in the tray" % str(b["title"])))
-	g.add_child(tray)
+	var archived := str(b.get("status", "")) == "archived"
+	if archived:
+		var restore := hud.button("Restore to a shelf", "AccentButton")
+		restore.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		restore.pressed.connect(func():
+			Library.update_book(id, {"status": ""})
+			hud.close_sheet()
+			hud.toast("Back on " + Library.location_label(Library.find_location(id), id)))
+		g.add_child(restore)
+	else:
+		if loc.has("shelf"):
+			var show := hud.button("Show on shelf", "AccentButton")
+			show.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			show.pressed.connect(func():
+				hud.close_sheet()
+				main().enter_shelf_by_id(str(loc["shelf"])))
+			g.add_child(show)
+		var face := hud.button("Spine out" if b.get("face_out", false) else "Cover out")
+		face.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		face.pressed.connect(func():
+			var want := not bool(b.get("face_out", false))
+			if want and loc.has("shelf"):
+				var extra := float(b["width"]) - float(b["thickness"])
+				if Library.row_free_width(loc["shelf"], loc["row"]) < extra:
+					hud.toast("Not enough space on this row to turn the cover out")
+					return
+			Library.update_book(id, {"face_out": want})
+			hud.close_sheet())
+		g.add_child(face)
+		var mv := hud.button("Move to…")
+		mv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mv.pressed.connect(func(): open_move_picker(id))
+		g.add_child(mv)
+		var tray := hud.button("Put in tray")
+		tray.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tray.pressed.connect(func():
+			Library.to_tray(id)
+			hud.close_sheet()
+			hud.toast("“%s” is in the tray" % str(b["title"])))
+		g.add_child(tray)
+		var reading := str(b.get("status", "")) == "currently-reading"
+		var rd := hud.button("Finished reading" if reading else "Start reading")
+		rd.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rd.pressed.connect(func():
+			Library.update_book(id, {"status": "read" if reading else "currently-reading"})
+			hud.close_sheet()
+			hud.toast("Marked as read" if reading else "On the reading table now"))
+		g.add_child(rd)
+		var arch := hud.button("Archive")
+		arch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		arch.pressed.connect(func():
+			Library.update_book(id, {"status": "archived"})
+			hud.close_sheet()
+			hud.toast("“%s” is in the archive box" % str(b["title"])))
+		g.add_child(arch)
 	var fetch := hud.button("Fetch cover" if str(b.get("cover_file", "")) == "" else "Refresh cover")
 	fetch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fetch.pressed.connect(func():
@@ -854,7 +889,7 @@ func _edit_book(id: String) -> void:
 	var status := OptionButton.new()
 	status.custom_minimum_size = Vector2(0, 84)
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var status_keys := ["", "read", "currently-reading", "to-read"]
+	var status_keys: Array = Library.STATUS_KEYS
 	for i in status_keys.size():
 		status.add_item(Library.STATUS_LABELS[status_keys[i]] if status_keys[i] != "" else "No status")
 		if status_keys[i] == str(b.get("status", "")):
@@ -1015,7 +1050,7 @@ func _book_row(id: String) -> Control:
 	sl.max_lines_visible = 1
 	sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	v.add_child(sl)
-	var loc := hud.label(Library.location_label(Library.find_location(id)), "SubLabel")
+	var loc := hud.label(Library.location_label(Library.find_location(id), id), "SubLabel")
 	loc.add_theme_font_size_override("font_size", 22)
 	loc.max_lines_visible = 1
 	loc.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1031,6 +1066,42 @@ func _book_row(id: String) -> Control:
 	var btn := _card_button(h, 118)
 	btn.pressed.connect(func(): open_book_detail(id))
 	return btn
+
+# ---------------------------------------------------------------- reading table & archive box
+
+func open_reading_list() -> void:
+	var ids := Library.reading_ids()
+	var c := hud.open_sheet("Reading table · %d" % ids.size(), 0.75)
+	if ids.is_empty():
+		c.add_child(hud.label("Nothing on the table yet.", "SubLabel"))
+		c.add_child(hud.label("Open a book and tap “Start reading”, or set its status to Reading. It shows up here and stays in its shelf as a ghost so you know where it belongs.", "MutedLabel"))
+		return
+	c.add_child(hud.label("These books keep their shelf spot as a ghost. Tap one, then “Show on shelf” or “Finished reading”.", "MutedLabel"))
+	for id in ids:
+		c.add_child(_book_row(id))
+
+func open_archive() -> void:
+	var ids := Library.archived_ids()
+	var c := hud.open_sheet("Archive box · %d" % ids.size(), 0.75)
+	if ids.is_empty():
+		c.add_child(hud.label("The box is empty.", "SubLabel"))
+		c.add_child(hud.label("Archive a book from its detail sheet to take it off the shelves without deleting it. Restoring it puts it back on a free spot.", "MutedLabel"))
+		return
+	c.add_child(hud.label("Archived books are out of the shelves. Restore one to put it back on a free spot.", "MutedLabel"))
+	for id in ids:
+		var h := hud.row(10)
+		var row := _book_row(id)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(row)
+		var restore := hud.button("Restore", "GhostButton", 118)
+		restore.custom_minimum_size = Vector2(160, 118)
+		var bid: String = id
+		restore.pressed.connect(func():
+			Library.update_book(bid, {"status": ""})
+			hud.toast("Back on " + Library.location_label(Library.find_location(bid), bid))
+			open_archive())
+		h.add_child(restore)
+		c.add_child(h)
 
 # ---------------------------------------------------------------- generic
 

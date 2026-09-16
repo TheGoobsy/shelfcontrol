@@ -41,11 +41,27 @@ static func std(color: Color, roughness := 0.8, metallic := 0.0, emission := Col
 	_cache[key] = m
 	return m
 
-static func textured(tex: Texture2D, roughness := 0.7) -> StandardMaterial3D:
+static func textured(tex: Texture2D, roughness := 0.7, alpha := 1.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_texture = tex
 	m.roughness = roughness
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	if alpha < 1.0:
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = Color(1, 1, 1, alpha)
+	return m
+
+## Translucent version of a plain colour, used for "ghost" books that are elsewhere in the room.
+static func ghost(color: Color, alpha := 0.35, roughness := 0.8) -> StandardMaterial3D:
+	var key := "ghost:%s:%.2f:%.2f" % [color.to_html(true), alpha, roughness]
+	if _cache.has(key):
+		return _cache[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(color.r, color.g, color.b, alpha)
+	m.roughness = roughness
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_BACK
+	_cache[key] = m
 	return m
 
 static func double_sided(color: Color, roughness := 0.9) -> StandardMaterial3D:

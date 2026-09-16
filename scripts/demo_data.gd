@@ -84,13 +84,18 @@ static func populate() -> void:
 		var genre_pool := ["Fantasy", "Science Fiction", "Literary Fiction", "History", "Philosophy", "Classics", "Memoir", "Mystery"]
 		var info := {"title": b[0], "authors": [b[1]], "pages": b[2], "year": str(b[3]), "rating": (i % 5) + 1, "face_out": i % 9 == 4, "source": "demo",
 			"genres": [genre_pool[i % genre_pool.size()], genre_pool[(i * 3 + 1) % genre_pool.size()]], "language": "English",
-			"avg_rating": 3.6 + (i % 14) * 0.1, "ratings_count": 1200 + i * 731, "status": ["read", "to-read", "currently-reading", "read"][i % 4]}
+			"avg_rating": 3.6 + (i % 14) * 0.1, "ratings_count": 1200 + i * 731, "status": ["read", "to-read", "read", "read", "currently-reading", "read", "to-read"][i % 7]}
+		if i % 11 == 7:
+			info["status"] = "archived"
 		if i == 0:
 			info["series"] = "The Kingkiller Chronicle #1"
 			info["tags"] = ["found family", "slow burn", "magic school"]
 			info["description"] = "Told in Kvothe's own voice, this is the tale of the magically gifted young man who grows to be the most notorious wizard his world has ever seen. The intimate narrative of his childhood in a troupe of traveling players, his years spent as a near-feral orphan in a crime-ridden city, his daringly brazen yet successful bid to enter a legendary school of magic, and his life as a fugitive after the murder of a king form a gripping coming-of-age story."
 		var id := Library.add_book(info)
-		var room := Library.get_room(living if i < 46 else study)
+		i += 1
+		if info["status"] == "archived":
+			continue
+		var room := Library.get_room(living if i <= 46 else study)
 		var placed := false
 		for attempt in 12:
 			var s: Dictionary = room["shelves"][rng.randi() % mini(room["shelves"].size(), 3)]
@@ -101,7 +106,6 @@ static func populate() -> void:
 				break
 		if not placed:
 			Library.auto_place(id, room["id"], true, true)
-		i += 1
 	# a couple of books in the tray
 	var t1 := Library.add_book({"title": "Exhalation", "authors": ["Ted Chiang"], "pages": 350, "year": "2019", "source": "demo"})
 	var t2 := Library.add_book({"title": "The Buried Giant", "authors": ["Kazuo Ishiguro"], "pages": 317, "year": "2015", "source": "demo"})

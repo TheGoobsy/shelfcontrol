@@ -420,3 +420,90 @@ static func globe(style: Dictionary) -> Node3D:
 	ring.outer_radius = 0.27
 	_mesh(root, ring, Vector3(0, 1.02, 0), brass, Vector3(0, 0, 0.4))
 	return root
+
+# ---------------------------------------------------------------- reading table & archive box
+
+static func _pick_body(root: Node3D, size: Vector3, pos: Vector3, prop: String) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	cs.shape = shape
+	cs.position = pos
+	body.add_child(cs)
+	body.set_meta("prop", prop)
+	root.add_child(body)
+
+## Low coffee table on the rug. Books being read are stacked on it by Room3D (child "Stack").
+static func reading_table(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var wood := Materials.std(style.get("trim", Color(0.3, 0.18, 0.1)).lightened(0.12), 0.75)
+	var dark := Materials.std(style.get("trim", Color(0.3, 0.18, 0.1)).darkened(0.2), 0.75)
+	const TOP_Y := 0.42
+	box(root, Vector3(0.96, 0.035, 0.54), Vector3(0, TOP_Y - 0.0175, 0), wood)
+	box(root, Vector3(0.90, 0.05, 0.48), Vector3(0, TOP_Y - 0.06, 0), dark)
+	for sx in [-0.42, 0.42]:
+		for sz in [-0.21, 0.21]:
+			box(root, Vector3(0.045, TOP_Y - 0.085, 0.045), Vector3(sx, (TOP_Y - 0.085) / 2.0, sz), dark)
+	# a coaster with a mug on one end
+	cyl(root, 0.055, 0.055, 0.006, Vector3(0.36, TOP_Y + 0.003, 0.14), Materials.std(Color(0.35, 0.22, 0.14), 0.9))
+	var mug := Materials.std(Color(0.92, 0.88, 0.80), 0.55)
+	cyl(root, 0.04, 0.036, 0.09, Vector3(0.36, TOP_Y + 0.051, 0.14), mug)
+	var handle := TorusMesh.new()
+	handle.inner_radius = 0.012
+	handle.outer_radius = 0.026
+	_mesh(root, handle, Vector3(0.405, TOP_Y + 0.05, 0.14), mug, Vector3(0, 0, PI / 2.0))
+	var stack := Node3D.new()
+	stack.name = "Stack"
+	stack.position = Vector3(-0.12, TOP_Y, 0)
+	root.add_child(stack)
+	_pick_body(root, Vector3(1.0, 0.7, 0.6), Vector3(0, 0.35, 0), "reading")
+	return root
+
+## Open cardboard box. Archived books stand inside it (child "Contents").
+static func archive_box(_style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var card := Materials.std(Color(0.70, 0.53, 0.34), 0.95)
+	var card_in := Materials.std(Color(0.60, 0.45, 0.29), 0.95)
+	var tape := Materials.std(Color(0.78, 0.66, 0.45), 0.6)
+	const W := 0.50
+	const D := 0.36
+	const H := 0.19
+	const T := 0.008
+	box(root, Vector3(W, T, D), Vector3(0, T / 2.0, 0), card_in)
+	box(root, Vector3(W, H, T), Vector3(0, H / 2.0, -D / 2.0 + T / 2.0), card)
+	box(root, Vector3(W, H, T), Vector3(0, H / 2.0, D / 2.0 - T / 2.0), card)
+	box(root, Vector3(T, H, D), Vector3(-W / 2.0 + T / 2.0, H / 2.0, 0), card)
+	box(root, Vector3(T, H, D), Vector3(W / 2.0 - T / 2.0, H / 2.0, 0), card)
+	# four flaps hinged at the rim, leaning open outwards
+	var fl := D * 0.46
+	for sz in [-1.0, 1.0]:
+		var hinge := Node3D.new()
+		hinge.position = Vector3(0, H, sz * D / 2.0)
+		hinge.rotation = Vector3(-sz * 0.42, 0, 0)
+		root.add_child(hinge)
+		box(hinge, Vector3(W, T, fl), Vector3(0, 0, sz * fl / 2.0), card)
+	for sx in [-1.0, 1.0]:
+		var hinge := Node3D.new()
+		hinge.position = Vector3(sx * W / 2.0, H, 0)
+		hinge.rotation = Vector3(0, 0, sx * 0.42)
+		root.add_child(hinge)
+		box(hinge, Vector3(fl * 0.55, T, D), Vector3(sx * fl * 0.275, 0, 0), card)
+	box(root, Vector3(0.06, T * 1.1, D), Vector3(0, T, 0), tape)
+	var lbl := Label3D.new()
+	lbl.text = "ARCHIVE"
+	lbl.font = Book3D._font()
+	lbl.pixel_size = 0.0006
+	lbl.font_size = 90
+	lbl.modulate = Color(0.25, 0.17, 0.10)
+	lbl.position = Vector3(0, H * 0.5, D / 2.0 + 0.002)
+	lbl.alpha_cut = Label3D.ALPHA_CUT_DISCARD
+	root.add_child(lbl)
+	var contents := Node3D.new()
+	contents.name = "Contents"
+	contents.position = Vector3(0, T, 0)
+	root.add_child(contents)
+	_pick_body(root, Vector3(W + 0.1, 0.45, D + 0.1), Vector3(0, 0.22, 0), "archive")
+	return root

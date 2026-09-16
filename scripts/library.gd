@@ -86,6 +86,7 @@ func _migrate() -> void:
 			t.remove_at(i)
 		else:
 			i += 1
+	_settle_archived()
 
 func save() -> void:
 	if no_save or _save_pending:
@@ -316,7 +317,8 @@ func _str_list(v: Variant, limit := 0) -> Array:
 		out = out.slice(0, limit)
 	return out
 
-const STATUS_LABELS := {"": "", "read": "Read", "currently-reading": "Reading", "to-read": "Want to read"}
+const STATUS_LABELS := {"": "", "read": "Read", "currently-reading": "Reading", "to-read": "Want to read", "archived": "Archived"}
+const STATUS_KEYS := ["", "read", "currently-reading", "to-read", "archived"]
 
 func status_label(book: Dictionary) -> String:
 	return STATUS_LABELS.get(str(book.get("status", "")), str(book.get("status", "")).capitalize())
@@ -423,10 +425,21 @@ func update_book(id: String, fields: Dictionary) -> void:
 	var b := get_book(id)
 	if b.is_empty():
 		return
+	var old_status := str(b.get("status", ""))
 	for k in fields.keys():
 		b[k] = fields[k]
 	if fields.has("pages"):
 		derive_dimensions(b)
+	var new_status := str(b.get("status", ""))
+	if new_status == "archived" and old_status != "archived":
+		# into the archive box: leaves its shelf slot free
+		var prev := detach(id)
+		if prev.has("shelf"):
+			placement_changed.emit([prev["shelf"]])
+		if prev.has("tray"):
+			tray_changed.emit()
+	elif old_status == "archived" and new_status != "archived" and find_location(id).is_empty():
+		auto_place(id)
 	book_updated.emit(id)
 	if fields.has("face_out"):
 		var loc := find_location(id)
@@ -614,11 +627,34 @@ func notify_bulk_change() -> void:
 func row_number(row: int) -> int:
 	return SHELF_ROWS - row
 
-func location_label(loc: Dictionary) -> String:
+func location_label(loc: Dictionary, book_id := "") -> String:
 	if loc.has("shelf"):
 		var s := get_shelf(loc["shelf"])
 		var r := get_shelf_room(loc["shelf"])
 		return "%s · %s · row %d" % [r.get("name", "?"), s.get("name", "?"), row_number(int(loc.get("row", 0)))]
 	if loc.has("tray"):
 		return "Tray"
+	if book_id != "" and str(get_book(book_id).get("status", "")) == "archived":
+		return "Archive box"
 	return "Nowhere"
+
+## Books with a given status, sorted by title.
+func ids_with_status(status: String) -> Array:
+	var ids: Array = []
+	for id in data["books"]:
+		if str(data["books"][id].get("status", "")) == status:
+			ids.append(id)
+	ids.sort_custom(func(a, b): return str(data["books"][a].get("title", "")).naturalnocasecmp_to(str(data["books"][b].get("title", ""))) < 0)
+	return ids
+
+func reading_ids() -> Array:
+	return ids_with_status("currently-reading")
+
+func archived_ids() -> Array:
+	return ids_with_status("archived")
+
+## Archived books that still sit in a shelf or the tray (e.g. after an import) are moved into the box.
+func _settle_archived() -> void:
+	for id in archived_ids():
+		if not find_location(id).is_empty():
+			detach(id)
