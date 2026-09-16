@@ -49,5 +49,5 @@ lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=2
 lights_and_shadows/directional_shadow/16_bits=false
 lights_and_shadows/positional_shadow/atlas_size=4096
 lights_and_shadows/positional_shadow/atlas_size.mobile=4096
-lights_and_shadows/positional_shadow/soft_shadow_filter_quality=2
-lights_and_shadows/positional_shadow/soft_shadow_filter_quality.mobile=2
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality.mobile=3
