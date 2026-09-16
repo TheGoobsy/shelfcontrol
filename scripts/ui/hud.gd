@@ -152,6 +152,18 @@ func apply_style(st: Dictionary) -> void:
 	th.set_stylebox("disabled", "IconButton", _flat(Color(f.r, f.g, f.b, 0.03), 44, Vector2(0, 0)))
 	th.set_font_size("font_size", "IconButton", 46)
 
+	# top-bar arrows: same panel colour and radius as the title bar
+	th.set_type_variation("BarIconButton", "Button")
+	th.set_stylebox("normal", "BarIconButton", _flat(bg(), 30, Vector2(0, 0)))
+	th.set_stylebox("hover", "BarIconButton", _flat(bg().lightened(0.06), 30, Vector2(0, 0)))
+	th.set_stylebox("pressed", "BarIconButton", _flat(bg().lightened(0.14), 30, Vector2(0, 0)))
+	th.set_stylebox("disabled", "BarIconButton", _flat(bg(), 30, Vector2(0, 0)))
+	th.set_stylebox("focus", "BarIconButton", empty)
+	th.set_color("icon_normal_color", "BarIconButton", f)
+	th.set_color("icon_hover_color", "BarIconButton", f)
+	th.set_color("icon_pressed_color", "BarIconButton", f)
+	th.set_color("icon_focus_color", "BarIconButton", f)
+	th.set_color("icon_disabled_color", "BarIconButton", Color(f.r, f.g, f.b, 0.3))
 	th.set_type_variation("AccentIconButton", "Button")
 	th.set_stylebox("normal", "AccentIconButton", _flat(a, 44, Vector2(0, 0)))
 	th.set_stylebox("hover", "AccentIconButton", _flat(a.lightened(0.08), 44, Vector2(0, 0)))
@@ -279,14 +291,15 @@ func _layout() -> void:
 	_bottom_inset = bottom_inset
 	top_bar.offset_top = top_inset + 24
 	top_bar.offset_bottom = top_inset + 24
-	top_bar.offset_left = 24 + 96 + 14
-	top_bar.offset_right = -(24 + 96 + 14)
+	# arrows are panels of the same height as the title bar, standing beside it
 	var bar_h := top_bar.get_combined_minimum_size().y
-	var arrow_y := top_inset + 24 + (bar_h - 96.0) / 2.0
-	top_prev.position = Vector2(24, arrow_y)
-	top_prev.size = Vector2(96, 96)
-	top_next.position = Vector2(canvas_size.x - 24 - 96, arrow_y)
-	top_next.size = Vector2(96, 96)
+	var arrow_w := 112.0
+	top_bar.offset_left = 24 + arrow_w + 14
+	top_bar.offset_right = -(24 + arrow_w + 14)
+	top_prev.position = Vector2(24, top_inset + 24)
+	top_prev.size = Vector2(arrow_w, bar_h)
+	top_next.position = Vector2(canvas_size.x - 24 - arrow_w, top_inset + 24)
+	top_next.size = Vector2(arrow_w, bar_h)
 	bottom_bar.offset_bottom = -(bottom_inset + 24)
 	bottom_bar.offset_right = -(24 + 108 + 16) if mode_shelf else -24
 	back_btn.offset_bottom = -(bottom_inset + 24)
@@ -329,9 +342,11 @@ func _build_top() -> void:
 	vb.add_child(sub_lbl)
 	# arrow buttons standing left and right of the title panel (positioned in _layout)
 	top_prev = _icon_button("res://icons/chevron_left.svg", 44)
+	top_prev.theme_type_variation = "BarIconButton"
 	top_prev.pressed.connect(func(): prev_pressed.emit())
 	root.add_child(top_prev)
 	top_next = _icon_button("res://icons/chevron_right.svg", 44)
+	top_next.theme_type_variation = "BarIconButton"
 	top_next.pressed.connect(func(): next_pressed.emit())
 	root.add_child(top_next)
 	# the same navigation again as bare chevrons at mid-height on the screen edges
