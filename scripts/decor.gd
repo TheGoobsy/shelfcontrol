@@ -875,3 +875,26 @@ static func attach_light(root: Node3D, offset: Vector3, color: Color, energy: fl
 	light.shadow_enabled = false
 	light.position = offset
 	root.add_child(light)
+
+## A cluster of three candles on a small brass tray, with a flickering light.
+static func candle_trio(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var brass := Materials.std(Color(0.75, 0.6, 0.3), 0.35, 0.8)
+	cyl(root, 0.13, 0.13, 0.012, Vector3(0, 0.006, 0), brass)
+	for i in 3:
+		var a := float(i) / 3.0 * TAU + 0.4
+		var pos := Vector3(cos(a) * 0.06, 0.012, sin(a) * 0.06)
+		cyl(root, 0.026, 0.02, 0.014, pos, brass)
+		_candle(root, pos + Vector3(0, 0.012, 0), [0.14, 0.10, 0.17][i], 0.016)
+	attach_light(root, Vector3(0, 0.3, 0), style.get("lamp", Color(1, 0.75, 0.45)), float(style.get("lamp_energy", 2.0)) * 0.3, 3.0)
+	return root
+
+## A single candle in a wooden holder.
+static func candle(style: Dictionary) -> Node3D:
+	var root := Node3D.new()
+	var wood := Materials.std(style.get("trim", Color(0.3, 0.18, 0.1)), 0.7)
+	cyl(root, 0.045, 0.055, 0.02, Vector3(0, 0.01, 0), wood)
+	cyl(root, 0.022, 0.022, 0.03, Vector3(0, 0.035, 0), wood)
+	_candle(root, Vector3(0, 0.05, 0), 0.12, 0.016)
+	attach_light(root, Vector3(0, 0.25, 0), style.get("lamp", Color(1, 0.75, 0.45)), float(style.get("lamp_energy", 2.0)) * 0.2, 2.5)
+	return root

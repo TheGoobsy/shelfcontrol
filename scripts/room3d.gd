@@ -240,13 +240,22 @@ func _build_decor() -> void:
 ## {"model": "GreenChair_01", "set": "keep", "pos": Vector3, "rot": float, "scale": float,
 ##  "light": Vector3 (optional candle light offset), "energy": float}
 func _place_model(d: Dictionary) -> void:
-	var n := Decor.model(str(d.get("set", "keep")), str(d["model"]), float(d.get("scale", 1.0)))
+	var n: Node3D = null
+	if d.has("prop"):
+		match str(d["prop"]):
+			"candle_trio":
+				n = Decor.candle_trio(style)
+			"candle":
+				n = Decor.candle(style)
+	else:
+		n = Decor.model(str(d.get("set", "keep")), str(d["model"]), float(d.get("scale", 1.0)))
 	if n == null:
 		return
 	add_child(n)
 	n.position = d.get("pos", Vector3.ZERO)
 	n.rotation.y = float(d.get("rot", 0.0))
-	if d.has("light"):
+	n.scale = Vector3.ONE * float(d.get("scale", 1.0)) if d.has("prop") else n.scale
+	if d.has("light") and not d.has("prop"):
 		Decor.attach_light(n, d["light"], style.get("lamp", Color(1, 0.75, 0.45)), float(d.get("energy", 1.2)) * float(style.get("lamp_energy", 2.0)) / 2.0, float(d.get("range", 4.0)))
 
 ## Functional props present in every room: the reading table and the archive box.
