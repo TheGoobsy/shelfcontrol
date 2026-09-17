@@ -2,7 +2,24 @@ class_name Book3D
 extends Node3D
 ## One physical book on a shelf. Origin at the bottom centre of its footprint.
 
-static var spine_font: Font
+## Label pixels to metres. Every spine font size is expressed in these units.
+const PIX := 0.0002
+
+## Where each block sits along the spine, as a fraction of spine height, and how
+## much of that height it may run across. Mirrors a real jacket: title in the upper
+## third, author down near the foot, imprint at the very base.
+const TITLE_Y := 0.64
+const TITLE_RUN := 0.54
+const AUTHOR_Y := 0.21
+const AUTHOR_RUN := 0.26
+const PUB_Y := 0.055
+const PUB_RUN := 0.12
+
+## Genres that read as contemporary non-fiction get a sans face; everything else is serif.
+const SANS_KEYS := ["non-fiction", "nonfiction", "science", "technolog", "business", "self-help",
+	"computer", "programming", "economic", "politic", "travel", "cook", "health", "design", "reference"]
+
+static var _fonts: Dictionary = {}
 static var _pages_mat: StandardMaterial3D
 
 var book_id := ""
@@ -20,18 +37,29 @@ var body: Node3D
 var mesh_inst: MeshInstance3D
 var cover_quad: MeshInstance3D
 var label: Label3D
+var author_label: Label3D
+var pub_label: Label3D
 var cover_label: Label3D
 var _has_cover := false
 
-static func _font() -> Font:
-	if spine_font == null:
-		spine_font = load("res://fonts/NotoSans-Bold.ttf")
-	return spine_font
+static func _font(path := "res://fonts/NotoSans-Bold.ttf") -> Font:
+	if not _fonts.has(path):
+		_fonts[path] = load(path)
+	return _fonts[path]
 
 static func _pages() -> StandardMaterial3D:
 	if _pages_mat == null:
 		_pages_mat = Materials.std(Color(0.93, 0.89, 0.80), 0.95)
 	return _pages_mat
+
+## Serif unless the genres say contemporary non-fiction.
+static func _serif(b: Dictionary) -> bool:
+	for g in b.get("genres", []):
+		var s := str(g).to_lower()
+		for k in SANS_KEYS:
+			if s.find(k) != -1:
+				return false
+	return true
 
 func setup(b: Dictionary) -> void:
 	book = b
@@ -47,6 +75,10 @@ func setup(b: Dictionary) -> void:
 		body.add_child(mesh_inst)
 		label = Label3D.new()
 		body.add_child(label)
+		author_label = Label3D.new()
+		body.add_child(author_label)
+		pub_label = Label3D.new()
+		body.add_child(pub_label)
 		cover_quad = MeshInstance3D.new()
 		body.add_child(cover_quad)
 		cover_label = Label3D.new()
@@ -54,23 +86,20 @@ func setup(b: Dictionary) -> void:
 	mesh_inst.mesh = BookMesh.get_mesh(dims.x, dims.y, dims.z)
 	_apply_body_material(false)
 
-	var dark := color.get_luminance() > 0.5
-	var text_col := Color(0.12, 0.09, 0.06) if dark else Color(0.96, 0.92, 0.82)
+	var light_spine := color.get_luminance() > 0.5
+	var text_col := Color(0.12, 0.09, 0.06) if light_spine else Color(0.96, 0.92, 0.82)
+	# Stamped foil: deep bronze pressed into a pale cloth, warm gold onto a dark one.
+	var foil := Color(0.30, 0.20, 0.06) if light_spine else Color(0.92, 0.76, 0.42)
+	# Warm gold on a warm spine goes muddy, so force the two apart when they sit too close.
+	if absf(foil.get_luminance() - color.get_luminance()) < 0.34:
+		foil = foil.darkened(0.45) if light_spine else foil.lightened(0.5)
+	var alpha := 0.6 if ghost else 1.0
 
-	# spine label
-	var em: float = clamp(dims.x * 0.5, 0.008, 0.019)
-	label.font = _font()
-	label.pixel_size = 0.0002
-	label.font_size = int(em / label.pixel_size)
-	label.text = _fit_title(str(b.get("title", "")), em)
-	label.modulate = Color(text_col, 0.6 if ghost else 1.0)
-	label.outline_size = 0
-	label.position = Vector3(0, dims.y / 2.0, dims.z / 2.0 + 0.0007)
-	label.rotation = Vector3(0, 0, -PI / 2.0 if Settings.get_value("spine_top_down") else PI / 2.0)
-	label.alpha_cut = Label3D.ALPHA_CUT_DISABLED if ghost else Label3D.ALPHA_CUT_DISCARD
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.render_priority = 1
+	var serif := _serif(b)
+	var title_font := _font("res://fonts/NotoSerif-Bold.ttf" if serif else "res://fonts/NotoSans-Bold.ttf")
+	var body_font := _font("res://fonts/NotoSerif-Regular.ttf" if serif else "res://fonts/NotoSans-Regular.ttf")
+
+	_layout_spine(b, title_font, body_font, foil, text_col, alpha)
 
 	# front cover
 	var q := QuadMesh.new()
@@ -80,13 +109,13 @@ func setup(b: Dictionary) -> void:
 	cover_quad.rotation = Vector3(0, PI / 2.0, 0)
 	cover_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	cover_label.font = _font()
-	cover_label.pixel_size = 0.0002
+	cover_label.font = title_font
+	cover_label.pixel_size = PIX
 	cover_label.font_size = 70
 	cover_label.text = str(b.get("title", ""))
 	cover_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cover_label.width = dims.z * 0.85 / cover_label.pixel_size
-	cover_label.modulate = Color(text_col, 0.6 if ghost else 1.0)
+	cover_label.modulate = Color(text_col, alpha)
 	cover_label.position = Vector3(dims.x / 2.0 + 0.0008, dims.y * 0.62, 0)
 	cover_label.rotation = Vector3(0, PI / 2.0, 0)
 	cover_label.alpha_cut = Label3D.ALPHA_CUT_DISABLED if ghost else Label3D.ALPHA_CUT_DISCARD
@@ -97,13 +126,140 @@ func setup(b: Dictionary) -> void:
 	_apply_orientation()
 	refresh_cover()
 
-func _fit_title(title: String, em: float) -> String:
-	var max_chars := int(dims.y * 0.86 / (em * 0.58))
-	if title.length() <= max_chars:
-		return title
-	if max_chars < 4:
-		return title.left(max(max_chars, 1))
-	return title.left(max_chars - 1).strip_edges() + "…"
+## Lays out title, author and imprint along the spine, sizing each to fit rather
+## than cutting it short. Titles wrap to two lines once the spine is thick enough.
+func _layout_spine(b: Dictionary, title_font: Font, body_font: Font, foil: Color, text_col: Color, alpha: float) -> void:
+	var spin := -PI / 2.0 if Settings.get_value("spine_top_down") else PI / 2.0
+	var z := dims.z / 2.0 + 0.0007
+
+	# --- title ---
+	var title := str(b.get("title", "")).strip_edges()
+	var run := dims.y * TITLE_RUN
+	var want := int(clamp(dims.x * 0.52, 0.0075, 0.018) / PIX)
+	var size := mini(want, _fit_size(title_font, title, run, 1))
+	var two := false
+	# Only break to two lines when one line would squash the type and the spine can take it.
+	if size < int(want * 0.72) and dims.x >= 0.019:
+		var want2 := int(clamp(dims.x * 0.30, 0.006, 0.011) / PIX)
+		var size2 := mini(want2, _fit_size(title_font, title, run, 2))
+		if size2 > size:
+			size = size2
+			two = true
+	size = maxi(size, 16)
+
+	label.font = title_font
+	label.pixel_size = PIX
+	label.font_size = size
+	label.text = _ellipsize(title_font, title, size, run * (2.0 if two else 1.0) * 0.96)
+	label.width = run / PIX
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if two else TextServer.AUTOWRAP_OFF
+	label.modulate = Color(foil, alpha)
+	# Left unshaded on purpose: a lit label goes too dark to read inside a shelf,
+	# and reading spines is the whole point. The foil reads through colour instead.
+	label.shaded = false
+	# A thin dark rim reads as type pressed into the cloth. Any heavier and it turns furry.
+	label.outline_size = maxi(int(size * 0.03), 1)
+	label.outline_modulate = Color(Color(0.05, 0.03, 0.02), alpha * 0.45)
+	label.position = Vector3(0, dims.y * TITLE_Y, z)
+	label.rotation = Vector3(0, 0, spin)
+	label.alpha_cut = Label3D.ALPHA_CUT_DISABLED if ghost else Label3D.ALPHA_CUT_DISCARD
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.render_priority = 1
+
+	# --- author, near the foot ---
+	var author := ""
+	var authors: Array = b.get("authors", [])
+	if authors.size() > 0:
+		author = str(authors[0]).strip_edges()
+	var a_run := dims.y * AUTHOR_RUN
+	var a_want := maxi(int(size * 0.62), 24)
+	var full_fit := _fit_size(body_font, author, a_run, 1)
+	var a_size := mini(a_want, full_fit)
+	# A long full name shrinks to mush. Real jackets drop to the surname instead.
+	# Compare the raw fits, not the floored sizes, or the floor hides the overflow.
+	if full_fit < a_want and author.find(" ") != -1:
+		var surname := author.substr(author.rfind(" ") + 1)
+		var s_fit := _fit_size(body_font, surname, a_run, 1)
+		if s_fit > full_fit:
+			author = surname
+			a_size = mini(a_want, s_fit)
+	a_size = maxi(a_size, 15)
+	# Nothing on a real spine ends in an ellipsis, so if the floor still overruns the
+	# block, shed the forenames before letting it clip.
+	if author.find(" ") != -1 and _clips(body_font, author, a_size, a_run * 0.96):
+		var last := author.substr(author.rfind(" ") + 1)
+		if not _clips(body_font, last, a_size, a_run * 0.96):
+			author = last
+
+	author_label.font = body_font
+	author_label.pixel_size = PIX
+	author_label.font_size = a_size
+	author_label.text = _ellipsize(body_font, author, a_size, a_run * 0.96)
+	author_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	author_label.modulate = Color(text_col, alpha * 0.92)
+	author_label.outline_size = 0
+	author_label.position = Vector3(0, dims.y * AUTHOR_Y, z)
+	author_label.rotation = Vector3(0, 0, spin)
+	author_label.alpha_cut = Label3D.ALPHA_CUT_DISABLED if ghost else Label3D.ALPHA_CUT_DISCARD
+	author_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	author_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	author_label.render_priority = 1
+	author_label.visible = author != ""
+
+	# --- imprint at the base, only where there is room for it ---
+	var pub := str(b.get("publisher", "")).strip_edges().to_upper()
+	var p_run := dims.y * PUB_RUN
+	var show_pub := pub != "" and dims.x >= 0.013
+	if show_pub:
+		var p_size := mini(maxi(int(size * 0.42), 14), _fit_size(body_font, pub, p_run, 1))
+		p_size = maxi(p_size, 11)
+		pub_label.font = body_font
+		pub_label.pixel_size = PIX
+		pub_label.font_size = p_size
+		pub_label.text = _ellipsize(body_font, pub, p_size, p_run * 0.96)
+		pub_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		pub_label.modulate = Color(text_col, alpha * 0.72)
+		pub_label.outline_size = 0
+		pub_label.position = Vector3(0, dims.y * PUB_Y, z)
+		pub_label.rotation = Vector3(0, 0, spin)
+		pub_label.alpha_cut = Label3D.ALPHA_CUT_DISABLED if ghost else Label3D.ALPHA_CUT_DISCARD
+		pub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		pub_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		pub_label.render_priority = 1
+	pub_label.visible = show_pub
+
+## Largest font size at which `text` fits `lines` rows inside `avail` metres.
+func _fit_size(f: Font, text: String, avail: float, lines: int) -> int:
+	if text.strip_edges() == "":
+		return 999
+	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 100).x
+	if w <= 0.0:
+		return 999
+	# Must stay inside the same margin the clip check uses, or a size that "fits" here
+	# still gets ellipsized there. Wrapping never splits a title exactly in half, so the
+	# two-line case gets extra slack on top.
+	var budget := avail * float(lines) * (0.90 if lines > 1 else 0.95)
+	return int(budget / (w * PIX) * 100.0)
+
+## True when `text` at `size` overruns `avail` metres on one line.
+func _clips(f: Font, text: String, size: int, avail: float) -> bool:
+	if text == "":
+		return false
+	return f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x * PIX > avail
+
+## Last resort once the type is already at its floor.
+func _ellipsize(f: Font, text: String, size: int, avail: float) -> String:
+	if text == "":
+		return text
+	if f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x * PIX <= avail:
+		return text
+	var out := text
+	while out.length() > 1:
+		out = out.substr(0, out.length() - 1)
+		if f.get_string_size(out + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x * PIX <= avail:
+			return out.strip_edges() + "…"
+	return out
 
 func _apply_orientation() -> void:
 	if face_out:

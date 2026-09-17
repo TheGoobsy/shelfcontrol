@@ -82,7 +82,9 @@ static func populate() -> void:
 	var i := 0
 	for b in BOOKS:
 		var genre_pool := ["Fantasy", "Science Fiction", "Literary Fiction", "History", "Philosophy", "Classics", "Memoir", "Mystery"]
+		var pub_pool := ["Vintage", "Penguin", "Faber", "Picador", "Gollancz", "Tor", "Hogarth", "Bloomsbury"]
 		var info := {"title": b[0], "authors": [b[1]], "pages": b[2], "year": str(b[3]), "rating": (i % 5) + 1, "face_out": i % 9 == 4, "source": "demo",
+			"publisher": pub_pool[(i * 5 + 2) % pub_pool.size()],
 			"genres": [genre_pool[i % genre_pool.size()], genre_pool[(i * 3 + 1) % genre_pool.size()]], "language": "English",
 			"avg_rating": 3.6 + (i % 14) * 0.1, "ratings_count": 1200 + i * 731, "status": ["read", "to-read", "read", "read", "currently-reading", "read", "to-read"][i % 7]}
 		if i % 11 == 7:

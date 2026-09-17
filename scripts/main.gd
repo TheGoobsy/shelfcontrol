@@ -117,6 +117,11 @@ func _ready() -> void:
 	BookAPI.request_missing_covers()
 	if shot_path != "":
 		_run_shot()
+	else:
+		# One-off: re-derive spine colours for books whose cover predates the current
+		# recipe, then rebuild the room so the shelf actually shows the new colours.
+		BookAPI.recolored.connect(func(): _load_room(room_index), CONNECT_ONE_SHOT)
+		BookAPI.recolor_stale_spines()
 
 func _parse_args() -> void:
 	for a in OS.get_cmdline_user_args():

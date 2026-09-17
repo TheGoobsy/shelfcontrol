@@ -3,8 +3,12 @@ extends Node
 
 signal cover_ready(book_id: String, texture: Texture2D)
 signal cover_progress(done: int, total: int)
+## Fired once the one-off spine recolour pass has finished, so the room can rebuild.
+signal recolored
 
 const COVER_DIR := "user://covers"
+## Bump when spine_color_from_image changes, to re-derive colours already on disk.
+const SPINE_V := 2
 const MAX_ACTIVE := 3
 const UA := "User-Agent: ShelfControl/0.1 (Godot; +https://github.com)"
 
@@ -288,6 +292,39 @@ func request_missing_covers() -> void:
 		if str(b.get("cover_file", "")) == "" or not FileAccess.file_exists(str(b.get("cover_file", ""))):
 			request_cover(id, true)
 
+## Spine colours used to be the flat mean of the whole cover, which pulled every book
+## towards the same grey-brown. Books already on the shelf keep that stale colour unless
+## we redo it, so re-derive it once from the cover that is already on disk. No network.
+## Spread over frames because a large library would otherwise stall the first frame.
+func recolor_stale_spines() -> void:
+	var todo: Array[String] = []
+	for id in Library.all_book_ids():
+		var b := Library.get_book(id)
+		if int(b.get("spine_v", 1)) >= SPINE_V:
+			continue
+		var f := str(b.get("cover_file", ""))
+		if f == "" or not FileAccess.file_exists(f):
+			continue
+		todo.append(id)
+	if todo.is_empty():
+		return
+	var n := 0
+	for id in todo:
+		# Written straight into the record: update_book() saves the whole library on
+		# every call, which would mean one full JSON write per book. Saved once below.
+		var b := Library.get_book(id)
+		b["spine_v"] = SPINE_V
+		var img := Image.new()
+		if img.load(str(b.get("cover_file", ""))) == OK:
+			if img.is_compressed():
+				img.decompress()
+			b["color"] = spine_color_from_image(img).to_html(false)
+		n += 1
+		if n % 12 == 0:
+			await Engine.get_main_loop().process_frame
+	Library.save()
+	recolored.emit()
+
 func _pump() -> void:
 	while _active < MAX_ACTIVE and not _queue.is_empty():
 		var id: String = _queue.pop_front()
@@ -335,7 +372,7 @@ func _download_cover(id: String) -> void:
 		img.save_jpg(path, 0.88)
 		var tex := ImageTexture.create_from_image(img)
 		_tex_cache[id] = tex
-		Library.update_book(id, {"cover_file": path, "color": spine_color_from_image(img).to_html(false), "cover_tried": true})
+		Library.update_book(id, {"cover_file": path, "color": spine_color_from_image(img).to_html(false), "cover_tried": true, "spine_v": SPINE_V})
 		cover_ready.emit(id, tex)
 	elif Library.has_book(id):
 		Library.update_book(id, {"cover_tried": true})
@@ -386,23 +423,74 @@ static func decode_image(body: PackedByteArray) -> Image:
 
 static func spine_color_from_image(src: Image) -> Color:
 	var img := src.duplicate() as Image
-	img.resize(12, 18, Image.INTERPOLATE_BILINEAR)
-	var r := 0.0
-	var g := 0.0
-	var b := 0.0
-	var n := 0
+	img.resize(24, 36, Image.INTERPOLATE_BILINEAR)
+	# Drop the paper-white margin and any black letterboxing: neither belongs on a spine.
+	var pts: Array[Color] = []
+	var all: Array[Color] = []
 	for y in img.get_height():
 		for x in img.get_width():
 			var c := img.get_pixel(x, y)
-			r += c.r
-			g += c.g
-			b += c.b
-			n += 1
-	var avg := Color(r / n, g / n, b / n)
-	var h := avg.h
-	var s := avg.s
-	var v := avg.v
-	return Color.from_hsv(h, clamp(s * 1.25, 0.12, 0.9), clamp(v, 0.16, 0.78))
+			all.append(c)
+			var v := maxf(c.r, maxf(c.g, c.b))
+			var mn := minf(c.r, minf(c.g, c.b))
+			var sat := 0.0 if v <= 0.001 else (v - mn) / v
+			if v > 0.92 and sat < 0.12:
+				continue
+			if v < 0.05:
+				continue
+			pts.append(c)
+	if pts.size() < 8:
+		pts = all
+	var win := _dominant_cluster(pts)
+	# Lift dark winners off pure black and let their hue through, so a shelf of dark
+	# books reads as oxblood and forest green rather than as a row of holes.
+	var boost := 1.15 + maxf(0.0, 0.32 - win.v) * 1.6
+	return Color.from_hsv(win.h, clamp(win.s * boost, 0.14, 0.95), clamp(win.v, 0.20, 0.74))
+
+## 3-means over RGB with deterministic luminance-quantile seeding, then the cluster
+## that best balances how much of the cover it covers against how saturated it is.
+static func _dominant_cluster(pts: Array[Color]) -> Color:
+	var lum := pts.duplicate()
+	lum.sort_custom(func(a: Color, b: Color) -> bool: return a.get_luminance() < b.get_luminance())
+	var cent: Array[Color] = [
+		lum[int(lum.size() * 0.15)],
+		lum[int(lum.size() * 0.50)],
+		lum[mini(int(lum.size() * 0.85), lum.size() - 1)],
+	]
+	var counts := PackedInt32Array([0, 0, 0])
+	for _iter in 8:
+		var sr := PackedFloat32Array([0, 0, 0])
+		var sg := PackedFloat32Array([0, 0, 0])
+		var sb := PackedFloat32Array([0, 0, 0])
+		counts = PackedInt32Array([0, 0, 0])
+		for c in pts:
+			var best := 0
+			var bd := INF
+			for k in 3:
+				var e := cent[k]
+				var d := (c.r - e.r) * (c.r - e.r) + (c.g - e.g) * (c.g - e.g) + (c.b - e.b) * (c.b - e.b)
+				if d < bd:
+					bd = d
+					best = k
+			sr[best] += c.r
+			sg[best] += c.g
+			sb[best] += c.b
+			counts[best] += 1
+		for k in 3:
+			if counts[k] > 0:
+				cent[k] = Color(sr[k] / counts[k], sg[k] / counts[k], sb[k] / counts[k])
+	var win := cent[0]
+	var best_score := -1.0
+	for k in 3:
+		if counts[k] == 0:
+			continue
+		var share := float(counts[k]) / float(pts.size())
+		# A tiny saturated accent must not beat the field the cover is actually printed on.
+		var score := share * (0.35 + cent[k].s * 1.1)
+		if score > best_score:
+			best_score = score
+			win = cent[k]
+	return win
 
 func get_thumbnail(url: String) -> Texture2D:
 	if url == "":
