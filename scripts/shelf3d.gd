@@ -71,6 +71,7 @@ func _build_case() -> void:
 			rows_y.append(band_bottom + BOARD_T)
 		else:
 			rows_y.append(band_bottom)
+	_build_top_plants()
 	# picking body
 	if body == null:
 		body = StaticBody3D.new()
@@ -84,6 +85,25 @@ func _build_case() -> void:
 		body.add_child(cs)
 		add_child(body)
 	body.set_meta("shelf_id", shelf_id)
+
+## One or two potted plants stand on top of the case. The seed comes from the shelf id,
+## so a shelf keeps the same plants in the same spots across rebuilds and sessions.
+func _build_top_plants() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(shelf_id + "|top")
+	var spots := [-0.32, 0.0, 0.32]
+	for i in spots.size():
+		var j := rng.randi_range(i, spots.size() - 1)
+		var tmp = spots[i]
+		spots[i] = spots[j]
+		spots[j] = tmp
+	var count := 1 if rng.randf() < 0.55 else 2
+	for i in count:
+		var p := Decor.shelf_plant(style, rng)
+		case_root.add_child(p)
+		p.position = Vector3(float(spots[i]) + rng.randf_range(-0.05, 0.05), H, rng.randf_range(-0.03, 0.03))
+		p.rotation.y = rng.randf() * TAU
+		p.scale = Vector3.ONE * rng.randf_range(0.92, 1.18)
 
 # ---------------------------------------------------------------- books
 

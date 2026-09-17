@@ -63,6 +63,11 @@ var styles: Dictionary = {
 		"trim": Color(0.20, 0.14, 0.10),
 		"shelf": {"texture": "res://textures/keep/dark_wooden_planks_diff.jpg", "tex_scale": 2.0, "tint": Color(0.80, 0.74, 0.68), "color_a": Color(0.28, 0.18, 0.11), "color_b": Color(0.16, 0.10, 0.06), "roughness": 0.85},
 		"table_model": {"model": "gothic_coffee_table", "scale": 0.75},
+		"bed_model": {"model": "GothicBed_01", "rot": PI},  # the model's headboard faces -z; the room wants it against the wall
+		"fireplace": {
+			"stone": {"pbr": "res://textures/keep/medieval_blocks_03", "tile": 1.7, "normal_scale": 1.0, "tint": Color(0.82, 0.79, 0.75)},
+			"mantel": {"pbr": "res://textures/keep/medieval_wood", "tile": 3.0, "normal_scale": 0.5, "tint": Color(0.60, 0.50, 0.40)},
+		},
 		"background": Color(0.03, 0.03, 0.03),
 		"ambient": Color(0.90, 0.78, 0.62), "ambient_energy": 0.42,
 		"sun": Color(0.90, 0.88, 0.82), "sun_energy": 1.0,
@@ -80,7 +85,7 @@ var styles: Dictionary = {
 			{"model": "wooden_crate_01", "pos": Vector3(2.55, 0, 2.5), "rot": 0.4},
 			{"prop": "candle", "pos": Vector3(2.55, 0.35, 2.5)},
 			{"prop": "candle_trio", "pos": Vector3(0.74, 0.42, -0.16)},
-			{"model": "lantern_chandelier_01", "pos": Vector3(0, 2.12, 0.3), "light": Vector3(0, 0.3, 0), "energy": 1.3, "range": 9.0},
+			{"model": "lantern_chandelier_01", "pos": Vector3(0, 2.12, 0.3), "light": Vector3(0, 0.3, 0), "energy": 1.3, "range": 9.0, "shadows": true},
 			{"model": "kite_shield", "pos": Vector3(-1.35, 0.9, 2.92), "rot": PI},
 		],
 		"cat_color": Color(0.30, 0.28, 0.27),

@@ -94,6 +94,61 @@ static func plant(style: Dictionary, rng: RandomNumberGenerator) -> Node3D:
 			_leaf(root, leaf, Vector3(0, 0.3, 0), ang, 0.95 + rng.randf() * 0.45, length, 0.03 + rng.randf() * 0.02, 0.006)
 	return root
 
+## Small potted plants for the top of a bookcase. Three kinds, sized for a 1.2 m wide case
+## and driven by the shelf's own seed so they stay put between rebuilds.
+static func shelf_plant(style: Dictionary, rng: RandomNumberGenerator) -> Node3D:
+	var root := Node3D.new()
+	var pot_col: Color = style.get("pot", Color(0.6, 0.35, 0.25))
+	var pot := Materials.std(pot_col.lightened(rng.randf() * 0.18), 0.85)
+	var soil := Materials.std(Color(0.16, 0.11, 0.07), 1.0)
+	var kind := rng.randi() % 3
+	if kind == 0:
+		# leafy pot plant
+		var r := 0.05 + rng.randf() * 0.018
+		cyl(root, r, r * 0.76, 0.105, Vector3(0, 0.052, 0), pot)
+		cyl(root, r * 0.92, r * 0.92, 0.012, Vector3(0, 0.108, 0), soil)
+		var n := 7 + rng.randi() % 4
+		for i in n:
+			var g := Color(0.16 + rng.randf() * 0.10, 0.40 + rng.randf() * 0.18, 0.18 + rng.randf() * 0.08)
+			_leaf(root, Materials.double_sided(g, 0.75), Vector3(0, 0.112, 0),
+				i * TAU / n + rng.randf() * 0.35, 0.55 + rng.randf() * 0.55,
+				0.13 + rng.randf() * 0.08, 0.05 + rng.randf() * 0.025, 0.005)
+	elif kind == 1:
+		# trailing ivy in a low bowl, vines spilling over the front edge of the case
+		var r := 0.058 + rng.randf() * 0.02
+		cyl(root, r, r * 0.7, 0.072, Vector3(0, 0.036, 0), pot)
+		cyl(root, r * 0.9, r * 0.9, 0.01, Vector3(0, 0.075, 0), soil)
+		var vines := 3 + rng.randi() % 3
+		for v in vines:
+			var yaw := rng.randf_range(0.6, 2.55) * (1.0 if v % 2 == 0 else -1.0)
+			var reach := 0.10 + rng.randf() * 0.08
+			var drop := 0.16 + rng.randf() * 0.16
+			var pts: Array = []
+			var steps := 9
+			for i in steps:
+				var t := float(i) / float(steps - 1)
+				var out := reach * t
+				pts.append(Vector3(sin(yaw) * out, 0.08 - drop * t * t, cos(yaw) * out))
+			var stem := Materials.std(Color(0.22, 0.34, 0.16), 0.9)
+			tube(root, pts, 0.006, 0.003, stem, 6)
+			for i in range(2, steps):
+				var g := Color(0.15 + rng.randf() * 0.08, 0.36 + rng.randf() * 0.16, 0.16 + rng.randf() * 0.07)
+				_leaf(root, Materials.double_sided(g, 0.8), pts[i],
+					yaw + (PI / 2.0 if i % 2 == 0 else -PI / 2.0) + rng.randf() * 0.4,
+					1.5 + rng.randf() * 0.5, 0.05 + rng.randf() * 0.025, 0.035 + rng.randf() * 0.015, 0.004)
+	else:
+		# spiky grass in a straight-sided pot
+		var r := 0.046 + rng.randf() * 0.016
+		cyl(root, r, r * 0.86, 0.095, Vector3(0, 0.047, 0), pot)
+		cyl(root, r * 0.92, r * 0.92, 0.01, Vector3(0, 0.098, 0), soil)
+		var n := 12 + rng.randi() % 6
+		for i in n:
+			var g := Color(0.22 + rng.randf() * 0.1, 0.50 + rng.randf() * 0.15, 0.24 + rng.randf() * 0.1)
+			_leaf(root, Materials.double_sided(g, 0.7), Vector3(0, 0.10, 0),
+				i * TAU / n + rng.randf() * 0.25, 1.0 + rng.randf() * 0.45,
+				0.17 + rng.randf() * 0.12, 0.012 + rng.randf() * 0.008, 0.004)
+	return root
+
 # ---------------------------------------------------------------- rug
 
 static func rug(style: Dictionary) -> Node3D:
@@ -115,14 +170,17 @@ static func rug(style: Dictionary) -> Node3D:
 
 # ---------------------------------------------------------------- fireplace
 
+## A style may replace the surround and mantel materials with photo textures:
+## "fireplace": {"stone": {"pbr": "res://textures/.../blocks"}, "mantel": {"pbr": ...}}
 static func fireplace(style: Dictionary) -> Node3D:
 	var root := Node3D.new()
-	var stone := Materials.from_spec({
+	var fspec: Dictionary = style.get("fireplace", {})
+	var stone := Materials.from_spec(fspec.get("stone", {
 		"shader": "brick",
 		"brick_a": Color(0.52, 0.50, 0.47), "brick_b": Color(0.38, 0.36, 0.34), "mortar": Color(0.28, 0.27, 0.25),
 		"brick_w": 0.34, "brick_h": 0.14, "mortar_w": 0.02, "jitter": 0.03,
-	})
-	var wood := Materials.std(style.get("trim", Color(0.3, 0.18, 0.1)), 0.5)
+	}))
+	var wood: Material = Materials.from_spec(fspec["mantel"]) if fspec.has("mantel") else Materials.std(style.get("trim", Color(0.3, 0.18, 0.1)), 0.5)
 	var soot := Materials.std(Color(0.05, 0.045, 0.04), 1.0)
 	var h := 1.25
 	var d := 0.5
@@ -136,6 +194,10 @@ static func fireplace(style: Dictionary) -> Node3D:
 	box(root, Vector3(side_w, h, d), Vector3(cw / 2.0 + side_w / 2.0, h / 2.0, 0), stone)
 	box(root, Vector3(cw, h - ch - hearth, d), Vector3(0, hearth + ch + (h - ch - hearth) / 2.0, 0), stone)
 	box(root, Vector3(cw, hearth, d), Vector3(0, hearth / 2.0, 0), stone)
+	# hearth apron: a stone slab on the floor in front of the opening, so the fireplace sits in the room
+	box(root, Vector3(1.5, 0.04, 0.34), Vector3(0, 0.02, d / 2.0 + 0.17), stone)
+	# lintel course: a band of stone bridging the opening, standing slightly proud of the face
+	box(root, Vector3(1.7, 0.17, d + 0.04), Vector3(0, hearth + ch + 0.085, 0.02), stone)
 	box(root, Vector3(cw, ch, d - cd), Vector3(0, hearth + ch / 2.0, -d / 2.0 + (d - cd) / 2.0), soot)
 	# soot liners on the cavity walls
 	box(root, Vector3(0.01, ch, cd), Vector3(-cw / 2.0 + 0.005, hearth + ch / 2.0, d / 2.0 - cd / 2.0), soot)
@@ -152,14 +214,34 @@ static func fireplace(style: Dictionary) -> Node3D:
 		cyl(root, 0.012, 0.012, 0.3, Vector3(x, hearth + 0.06, 0.05), iron, Vector3(PI / 2.0, 0, 0))
 	box(root, Vector3(0.7, 0.02, 0.02), Vector3(0, hearth + 0.12, -0.1), iron)
 	box(root, Vector3(0.7, 0.02, 0.02), Vector3(0, hearth + 0.12, 0.2), iron)
-	var log_mat := Materials.std(Color(0.14, 0.09, 0.06), 0.95)
-	var log_hot := Materials.std(Color(0.16, 0.09, 0.05), 0.95, 0.0, Color(1.0, 0.22, 0.03), 0.35)
+	# firewood: real bark, lit by the fire rather than glowing by itself. The log nearest
+	# the flames is tinted down to charcoal.
+	var log_mat := Materials.from_spec(fspec.get("logs", {
+		"pbr": "res://textures/fire/knotted_pine_bark", "tile": 0.12, "normal_scale": 1.0,
+		"tint": Color(0.34, 0.26, 0.20),
+	}))
+	var log_hot := Materials.from_spec(fspec.get("logs_charred", {
+		"pbr": "res://textures/fire/knotted_pine_bark", "tile": 0.12, "normal_scale": 1.0,
+		"tint": Color(0.11, 0.10, 0.09),
+	}))
 	cyl(root, 0.05, 0.05, 0.62, Vector3(0, hearth + 0.18, 0.12), log_hot, Vector3(0, 0, PI / 2.0))
 	cyl(root, 0.045, 0.045, 0.56, Vector3(0.04, hearth + 0.18, -0.02), log_mat, Vector3(0, 0, PI / 2.0))
 	cyl(root, 0.04, 0.04, 0.5, Vector3(-0.05, hearth + 0.26, 0.05), log_hot, Vector3(0.35, 0, PI / 2.0))
-	# embers
-	var ember := Materials.std(Color(0.4, 0.1, 0.02), 1.0, 0.0, Color(1.0, 0.3, 0.05), 2.5)
-	box(root, Vector3(0.55, 0.03, 0.3), Vector3(0, hearth + 0.02, 0.05), ember)
+	# ember bed: ash and broken lumps rather than one glowing slab
+	var ash := Materials.from_spec(fspec.get("ash", {
+		"pbr": "res://textures/fire/burned_ground_01", "tile": 0.2, "normal_scale": 0.8,
+		"tint": Color(0.30, 0.28, 0.26),
+	}))
+	box(root, Vector3(0.62, 0.025, 0.34), Vector3(0, hearth + 0.012, 0.05), ash)
+	var ember := Materials.std(Color(0.35, 0.09, 0.02), 1.0, 0.0, Color(1.0, 0.3, 0.05), 1.6)
+	var ember_lumps := [
+		[Vector3(0.10, 0.022, 0.09), Vector3(-0.14, hearth + 0.028, 0.02), 0.4],
+		[Vector3(0.13, 0.020, 0.08), Vector3(0.02, hearth + 0.026, 0.09), -0.2],
+		[Vector3(0.09, 0.018, 0.07), Vector3(0.16, hearth + 0.024, -0.01), 0.9],
+		[Vector3(0.07, 0.016, 0.06), Vector3(-0.02, hearth + 0.024, -0.06), -0.7],
+	]
+	for lump in ember_lumps:
+		box(root, lump[0], lump[1], ember, Vector3(0, lump[2], 0))
 	# flames: crossed planes so they read from any angle
 	var fire := Materials.from_spec({"shader": "fire", "color_a": Color(1.0, 0.32, 0.04), "color_b": Color(1.0, 0.85, 0.35), "speed": 1.7, "intensity": 2.4})
 	var flame_specs := [
@@ -183,11 +265,12 @@ static func fireplace(style: Dictionary) -> Node3D:
 	root.add_child(light)
 	var inner := FlickerLight.new()
 	inner.light_color = Color(1.0, 0.45, 0.12)
-	inner.light_energy = 0.7
+	inner.light_energy = 0.55
 	inner.omni_range = 1.1
 	inner.shadow_enabled = false
 	inner.speed = 11.0
 	inner.amount = 0.5
+	inner.omni_attenuation = 2.0
 	inner.position = Vector3(0, hearth + 0.5, 0.15)
 	root.add_child(inner)
 	return root
@@ -588,6 +671,12 @@ static func office_chair(style: Dictionary) -> Node3D:
 # ---------------------------------------------------------------- bedroom
 
 static func bed(style: Dictionary) -> Node3D:
+	if style.has("bed_model"):
+		var bm: Dictionary = style["bed_model"]
+		var mroot := model(str(bm.get("set", "keep")), str(bm["model"]), float(bm.get("scale", 1.0)))
+		if mroot != null:
+			mroot.rotation.y = float(bm.get("rot", 0.0))
+			return mroot
 	var root := Node3D.new()
 	var trim: Color = style.get("trim", Color(0.3, 0.18, 0.1))
 	var wood := Materials.std(trim.lightened(0.1), 0.7)
@@ -864,7 +953,8 @@ static func _merge_aabb(n: Node, xform: Transform3D, acc: Dictionary) -> void:
 			_merge_aabb(c, xform, acc)
 
 ## Warm flickering candle light attached to a model (offset in metres above its floor point).
-static func attach_light(root: Node3D, offset: Vector3, color: Color, energy: float, rng_range := 4.0) -> void:
+## Ceiling fixtures pass shadows = true so the room gets the grounding shadows a pendant gives.
+static func attach_light(root: Node3D, offset: Vector3, color: Color, energy: float, rng_range := 4.0, shadows := false) -> void:
 	var light := FlickerLight.new()
 	light.light_color = color
 	light.light_energy = energy
@@ -872,9 +962,26 @@ static func attach_light(root: Node3D, offset: Vector3, color: Color, energy: fl
 	light.speed = 5.0
 	light.omni_range = rng_range
 	light.omni_attenuation = 1.4
-	light.shadow_enabled = false
+	light.shadow_enabled = shadows
+	if shadows:
+		light.omni_shadow_mode = OmniLight3D.SHADOW_CUBE
+		light.shadow_bias = 0.06
+		light.shadow_normal_bias = 2.5
+		light.shadow_blur = 2.4
+		light.shadow_opacity = 0.9
 	light.position = offset
 	root.add_child(light)
+	if shadows:
+		# the fixture holds the light inside itself: let it shine through its own metalwork,
+		# otherwise a closed lantern shadows the whole room it is meant to light
+		_no_self_shadow(root)
+
+## Stops a light fixture from casting shadows onto the room it lights.
+static func _no_self_shadow(node: Node) -> void:
+	if node is MeshInstance3D:
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for c in node.get_children():
+		_no_self_shadow(c)
 
 ## A cluster of three candles on a small brass tray, with a flickering light.
 static func candle_trio(style: Dictionary) -> Node3D:

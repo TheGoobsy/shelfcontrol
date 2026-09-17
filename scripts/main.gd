@@ -7,6 +7,7 @@ const ROOM_PIVOT := Vector3(0, 1.5, 0.3)
 const ROOM_ORBIT := 1.7
 const ROOM_FOV := 78.0
 const SHELF_FOV := 58.0
+const SHELF_FADE := 0.85   # how see-through furniture in front of an open shelf goes
 const TAP_SLOP := 16.0
 
 var mode: Mode = Mode.ROOM
@@ -246,6 +247,7 @@ func _on_structure_changed() -> void:
 		mode = Mode.SHELF
 		var view := _shelf_view(active_shelf)
 		rig.snap(view[0], view[1], SHELF_FOV)
+		room3d.fade_for_view(view[0], active_shelf, SHELF_FADE)
 		_update_shelf_hud()
 	else:
 		mode = Mode.ROOM
@@ -297,6 +299,7 @@ func enter_shelf(sh: Shelf3D) -> void:
 	shelf_pan = Vector2.ZERO
 	var view := _shelf_view(sh)
 	rig.go_to(view[0], view[1], SHELF_FOV, 0.65)
+	room3d.fade_for_view(view[0], sh, SHELF_FADE)
 	_update_shelf_hud()
 
 func enter_shelf_by_id(sid: String) -> void:
@@ -338,6 +341,7 @@ func exit_shelf() -> void:
 	mode = Mode.ROOM
 	active_shelf = null
 	hud.set_placing("")
+	room3d.fade_for_view(Vector3.ZERO, null, 0.0)
 	rig.go_to(_room_eye(), _room_basis(), ROOM_FOV, 0.6)
 	_update_room_hud()
 
@@ -361,6 +365,7 @@ func _update_shelf_camera(animate: bool) -> void:
 		rig.go_to(view[0], view[1], SHELF_FOV, 0.2)
 	else:
 		rig.snap(view[0], view[1], SHELF_FOV)
+	room3d.fade_for_view(view[0], active_shelf, SHELF_FADE)
 
 func _zoom(factor: float) -> void:
 	if mode != Mode.SHELF:

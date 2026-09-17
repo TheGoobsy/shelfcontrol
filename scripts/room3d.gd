@@ -9,6 +9,9 @@ var env: WorldEnvironment
 var table: Node3D
 var archive: Node3D
 var doors: Dictionary = {}   # target room id -> door Node3D
+var decor_nodes: Array[Node3D] = []   # furniture that may be faded out of the way
+var _decor_boxes: Array[AABB] = []
+var _fade_args := []   # [eye, shelf, amount] of the fade in force, so rebuilt props match
 
 const TABLE_POS := Vector3(0.35, 0, 0.15)
 const ARCHIVE_POS := Vector3(-1.9, 0, 2.5)
@@ -26,6 +29,8 @@ func build(r: Dictionary, st: Dictionary) -> void:
 		c.queue_free()
 	shelves.clear()
 	doors.clear()
+	decor_nodes.clear()
+	_decor_boxes.clear()
 	_build_environment()
 	_build_shell()
 	_build_lights()
@@ -134,6 +139,7 @@ func occupied(wall: int, slot: int) -> bool:
 	return false
 
 func _build_decor() -> void:
+	var first := get_child_count()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(room.get("id", "")) + str(style.get("name", "")))
 	var plant_i := 0
@@ -235,10 +241,20 @@ func _build_decor() -> void:
 				var ch := Decor.chandelier(style)
 				add_child(ch)
 				ch.position = Vector3(0, Styles.ROOM_H, 0.3)
+	_track_decor(first)
+
+## Remembers the furniture added since `first`, with the world box each piece occupies,
+## so shelf mode can fade whatever stands in front of the books.
+func _track_decor(first: int) -> void:
+	for i in range(first, get_child_count()):
+		var c := get_child(i)
+		if c is Node3D and not (c is Light3D):
+			decor_nodes.append(c)
+			_decor_boxes.append(global_transform * Decor.model_aabb(c))
 
 ## A decor entry given as a dictionary places an imported model:
 ## {"model": "GreenChair_01", "set": "keep", "pos": Vector3, "rot": float, "scale": float,
-##  "light": Vector3 (optional candle light offset), "energy": float}
+##  "light": Vector3 (optional candle light offset), "energy": float, "shadows": bool}
 func _place_model(d: Dictionary) -> void:
 	var n: Node3D = null
 	if d.has("prop"):
@@ -256,10 +272,54 @@ func _place_model(d: Dictionary) -> void:
 	n.rotation.y = float(d.get("rot", 0.0))
 	n.scale = Vector3.ONE * float(d.get("scale", 1.0)) if d.has("prop") else n.scale
 	if d.has("light") and not d.has("prop"):
-		Decor.attach_light(n, d["light"], style.get("lamp", Color(1, 0.75, 0.45)), float(d.get("energy", 1.2)) * float(style.get("lamp_energy", 2.0)) / 2.0, float(d.get("range", 4.0)))
+		Decor.attach_light(n, d["light"], style.get("lamp", Color(1, 0.75, 0.45)), float(d.get("energy", 1.2)) * float(style.get("lamp_energy", 2.0)) / 2.0, float(d.get("range", 4.0)), bool(d.get("shadows", false)))
+
+## Furniture standing between the reader's eye and the shelf they opened turns see-through,
+## so a chair, a plant or the reading table never hides the books. `amount` 0.0 is solid.
+func fade_for_view(eye: Vector3, sh: Shelf3D, amount: float) -> int:
+	_fade_args = [eye, sh, amount]
+	var targets: Array[Vector3] = []
+	if sh != null and amount > 0.0:
+		var c := sh.center_world()
+		var right := sh.global_transform.basis.x.normalized() * (Styles.SHELF_W * 0.45)
+		var up := Vector3.UP * (Styles.SHELF_H * 0.45)
+		targets = [c, c + right, c - right, c + up, c - up, c + right + up, c - right - up]
+	var faded := 0
+	for i in decor_nodes.size():
+		var n := decor_nodes[i]
+		if not is_instance_valid(n):
+			continue
+		var hidden := false
+		for t in targets:
+			if _decor_boxes[i].intersects_segment(eye, t):
+				hidden = true
+				break
+		_set_transparency(n, amount if hidden else 0.0)
+		if hidden:
+			faded += 1
+	return faded
+
+## GeometryInstance3D.transparency only works in Forward+, and this app runs the mobile
+## renderer, so a see-through copy of each material is swapped in instead.
+static func _set_transparency(n: Node, amount: float) -> void:
+	if n is MeshInstance3D and n.mesh != null:
+		if amount > 0.0:
+			if not n.has_meta("solid_mat"):
+				n.set_meta("solid_mat", n.material_override)
+				n.set_meta("solid_shadow", n.cast_shadow)
+				n.material_override = Materials.see_through(n.get_active_material(0), 1.0 - amount)
+				n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		elif n.has_meta("solid_mat"):
+			n.material_override = n.get_meta("solid_mat")
+			n.cast_shadow = n.get_meta("solid_shadow")
+			n.remove_meta("solid_mat")
+			n.remove_meta("solid_shadow")
+	for c in n.get_children():
+		_set_transparency(c, amount)
 
 ## Functional props present in every room: the reading table and the archive box.
 func _build_props() -> void:
+	var first := get_child_count()
 	table = Decor.reading_table(style)
 	add_child(table)
 	table.position = TABLE_POS
@@ -271,12 +331,15 @@ func _build_props() -> void:
 	archive.position = apos
 	var dir := Vector3(0, 0, 0.3) - apos
 	archive.rotation.y = atan2(dir.x, dir.z)
+	_track_decor(first)
 	refresh_props()
 
 ## Rebuilds the stack on the table and the books in the archive box from the library's statuses.
 func refresh_props() -> void:
 	if table == null or archive == null:
 		return
+	if not _fade_args.is_empty() and float(_fade_args[2]) > 0.0:
+		(func(): fade_for_view(_fade_args[0], _fade_args[1], _fade_args[2])).call_deferred()
 	var stack: Node3D = table.get_node("Stack")
 	for c in stack.get_children():
 		c.queue_free()

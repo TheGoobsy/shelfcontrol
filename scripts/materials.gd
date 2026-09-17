@@ -122,6 +122,26 @@ static func ghost(color: Color, alpha := 0.35, roughness := 0.8) -> StandardMate
 	_cache[key] = m
 	return m
 
+## A see-through copy of a material, keeping its texture and colour. Used for furniture
+## standing in front of an open shelf. Custom shaders cannot be made translucent, so they
+## fall back to a neutral pane.
+static func see_through(src: Material, alpha := 0.2) -> Material:
+	var key := "see:%d:%.2f" % [src.get_instance_id() if src != null else 0, alpha]
+	if _cache.has(key):
+		return _cache[key]
+	var m: BaseMaterial3D
+	if src is BaseMaterial3D:
+		m = src.duplicate()
+		m.albedo_color.a = alpha
+	else:
+		m = StandardMaterial3D.new()
+		m.albedo_color = Color(0.55, 0.50, 0.45, alpha)
+		m.roughness = 0.9
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+	_cache[key] = m
+	return m
+
 static func double_sided(color: Color, roughness := 0.9) -> StandardMaterial3D:
 	var key := "ds:%s:%.2f" % [color.to_html(true), roughness]
 	if _cache.has(key):
