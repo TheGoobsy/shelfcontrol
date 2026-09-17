@@ -43,6 +43,7 @@ var sheet: PanelContainer
 var sheet_title: Label
 var sheet_content: VBoxContainer
 var sheet_scroll: ScrollContainer
+var sheet_header_box: VBoxContainer
 var dialogs: Dialogs
 
 var sans: Font
@@ -714,6 +715,11 @@ func _build_sheet() -> void:
 	close.custom_minimum_size = Vector2(84, 84)
 	close.pressed.connect(close_sheet)
 	head.add_child(close)
+	sheet_header_box = VBoxContainer.new()
+	sheet_header_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sheet_header_box.add_theme_constant_override("separation", 14)
+	sheet_header_box.visible = false
+	vb.add_child(sheet_header_box)
 	sheet_scroll = ScrollContainer.new()
 	sheet_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sheet_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -730,13 +736,19 @@ func _build_sheet() -> void:
 	pad.add_child(sheet_content)
 
 var _sheet_max_h := 400.0
+var _sheet_fixed := false
 var _kb_h := 0.0
 var _bottom_inset := 0.0
 
-func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
+func open_sheet(title: String, height_frac := 0.55, fixed_height := false) -> VBoxContainer:
 	for c in sheet_content.get_children():
 		sheet_content.remove_child(c)
 		c.queue_free()
+	for c in sheet_header_box.get_children():
+		sheet_header_box.remove_child(c)
+		c.queue_free()
+	sheet_header_box.visible = false
+	_sheet_fixed = fixed_height
 	sheet_title.text = tr(title)
 	var h := get_viewport().get_visible_rect().size.y * height_frac
 	sheet.offset_top = 0
@@ -752,6 +764,11 @@ func open_sheet(title: String, height_frac := 0.55) -> VBoxContainer:
 	tw.tween_property(sheet, "modulate:a", 1.0, 0.15)
 	return sheet_content
 
+## Rows that stay put while the rest of the sheet scrolls: search fields, filters, counts.
+func sheet_header() -> VBoxContainer:
+	sheet_header_box.visible = true
+	return sheet_header_box
+
 ## Sheets size to their content: no empty space below short menus, a scrollbar for long ones.
 ## height_frac from open_sheet is the maximum. On phones the on-screen keyboard slides over the
 ## sheet, so the sheet is lifted by the keyboard height and its maximum shrinks accordingly.
@@ -765,8 +782,14 @@ func _fit_sheet() -> void:
 	if absf(sheet.offset_bottom + lift) >= 0.5:
 		sheet.offset_bottom = -lift
 	var room := canvas_h - lift - 260.0
+	var head_h := 0.0
+	if sheet_header_box.visible:
+		head_h = sheet_header_box.get_combined_minimum_size().y + 14.0
 	var content_h := sheet_content.get_combined_minimum_size().y + 28.0
-	var want := clampf(minf(content_h, _sheet_max_h), 120.0, maxf(120.0, room))
+	# fixed_height sheets keep the tallest size they are allowed, so filtering a list
+	# never resizes the sheet under the reader's thumb
+	var cap := minf(_sheet_max_h, room) - head_h
+	var want := clampf(cap if _sheet_fixed else minf(content_h, _sheet_max_h - head_h), 120.0, maxf(120.0, room - head_h))
 	if absf(sheet_scroll.custom_minimum_size.y - want) >= 0.5:
 		sheet_scroll.custom_minimum_size = Vector2(0, want)
 	if kb_changed and kb > 0.0:

@@ -912,7 +912,8 @@ var _books_status := "*"
 
 
 func open_all_books() -> void:
-	var c := hud.open_sheet(tr("All books · %d") % Library.book_count(), 0.92)
+	var c := hud.open_sheet(tr("All books · %d") % Library.book_count(), 0.92, true)
+	var head := hud.sheet_header()
 	var r := hud.row()
 	var field := LineEdit.new()
 	field.placeholder_text = tr("Filter by title, author, genre, tag…")
@@ -929,7 +930,7 @@ func open_all_books() -> void:
 		if sorts[i][0] == _books_sort:
 			sort.selected = i
 	r.add_child(sort)
-	c.add_child(r)
+	head.add_child(r)
 	var count := hud.label("", "SubLabel")
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 8)
@@ -954,19 +955,22 @@ func open_all_books() -> void:
 	for k in Library.STATUS_KEYS:
 		if k != "":
 			status_opts.append([k, Library.STATUS_LABELS[k]])
-	hud.segmented(c, status_opts, _books_status, func(k):
+	hud.segmented(head, status_opts, _books_status, func(k):
 		_books_status = k
 		state["limit"] = 40
+		hud.sheet_scroll.scroll_vertical = 0
 		refresh.call(), true)
-	c.add_child(count)
+	head.add_child(count)
 	c.add_child(list)
 	c.add_child(more)
 	field.text_changed.connect(func(t: String):
 		_books_query = t
 		state["limit"] = 40
+		hud.sheet_scroll.scroll_vertical = 0
 		refresh.call())
 	sort.item_selected.connect(func(i: int):
 		_books_sort = sorts[i][0]
+		hud.sheet_scroll.scroll_vertical = 0
 		refresh.call())
 	more.pressed.connect(func():
 		state["limit"] += 40
