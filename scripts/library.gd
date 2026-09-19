@@ -14,6 +14,9 @@ signal structure_changed()                    # rooms / shelves / style changed 
 signal placement_changed(shelf_ids: Array)    # books moved within/between shelves
 signal book_updated(book_id: String)          # metadata or cover changed
 signal tray_changed()
+## A room was too full of bookcases to give a door a wall spot, so that pair of rooms
+## is joined by the room arrows alone. Carries the names, for a toast.
+signal doors_skipped(room_names: Array)
 
 const SAVE_PATH := "user://library.json"
 const VERSION := 1
@@ -335,41 +338,73 @@ func is_slot_free(rid: String, wall: int, slot: int) -> bool:
 
 ## Rooms form a chain; room i and i+1 are joined by a door pair. Door slots are reserved, so a
 ## shelf standing on a chosen slot is moved to a free spot. Called whenever the room list changes.
+##
+## A room packed wall to wall with bookcases has nowhere to move that shelf to. Rather than
+## stand a door in the middle of a bookcase, or take the shelf away from someone who filled
+## it on purpose, the pair simply gets no door: the room arrows still walk between them.
 func _assign_doors() -> void:
 	var rooms: Array = data["rooms"]
 	for r in rooms:
 		r["doors"] = []
+	var skipped: Array = []
 	for i in rooms.size() - 1:
 		var a: Dictionary = rooms[i]
 		var b: Dictionary = rooms[i + 1]
 		var ew: int = Styles.exit_wall(i)
 		var nw: int = Styles.opposite_wall(ew)
+		# Both sides are checked before either is changed, so a door that cannot be hung
+		# does not leave a bookcase shoved aside for nothing.
+		if _pick_door_slot(a, ew, false) < 0 or _pick_door_slot(b, nw, false) < 0:
+			skipped.append("%s ↔ %s" % [str(a.get("name", "?")), str(b.get("name", "?"))])
+			continue
 		a["doors"].append({"wall": ew, "slot": _pick_door_slot(a, ew), "to": b["id"]})
 		b["doors"].append({"wall": nw, "slot": _pick_door_slot(b, nw), "to": a["id"]})
+	if not skipped.is_empty():
+		doors_skipped.emit.call_deferred(skipped)
 
-func _pick_door_slot(room: Dictionary, wall: int) -> int:
+## The wall spot a door on this wall should take, or -1 when the wall has no room for one.
+## With `commit` off it works out the same answer without moving anything, which is how the
+## two halves of a door pair are checked before either is acted on.
+func _pick_door_slot(room: Dictionary, wall: int, commit := true) -> int:
 	var prefs: Array = Styles.DOOR_SLOT_PREFS[wall]
 	for slot in prefs:
-		if _shelf_at(room, wall, slot).is_empty() and _door_at(room, wall, slot).is_empty() \
-				and _wall_furniture_at(room, wall, slot).is_empty():
+		if _slot_clear(room, wall, slot):
 			return slot
-	# every candidate is taken: claim the first and move whatever stands there somewhere free
-	var slot: int = prefs[0]
-	var sitting: Dictionary = _shelf_at(room, wall, slot)
+	# The preferred spots keep a door off the middle of a long wall, where the window and
+	# the fireplace live. With those gone, any free spot on the wall beats no door at all.
+	for slot in Styles.slot_count(wall):
+		if _slot_clear(room, wall, slot):
+			return slot
+	# Nothing free: take the first preference and move whatever stands there.
+	var taken: int = prefs[0]
+	var sitting: Dictionary = _shelf_at(room, wall, taken)
 	if sitting.is_empty():
-		sitting = _wall_furniture_at(room, wall, slot)
-	if not sitting.is_empty():
-		for w in 4:
-			for sl in Styles.slot_count(w):
-				if (w == wall and sl == slot) or not _door_at(room, w, sl).is_empty() \
-						or not _shelf_at(room, w, sl).is_empty() or not _wall_furniture_at(room, w, sl).is_empty():
-					continue
-				if w == wall and prefs.has(sl):
-					continue
-				sitting["wall"] = w
-				sitting["slot"] = sl
-				return slot
-	return slot
+		sitting = _wall_furniture_at(room, wall, taken)
+	if sitting.is_empty():
+		return taken
+	var spot := _free_spot_away_from(room, wall, taken, prefs)
+	if spot.is_empty():
+		return -1
+	if commit:
+		sitting["wall"] = int(spot["wall"])
+		sitting["slot"] = int(spot["slot"])
+	return taken
+
+## Nothing at all on this wall spot: no bookcase, no door, no wall furniture.
+func _slot_clear(room: Dictionary, wall: int, slot: int) -> bool:
+	return _shelf_at(room, wall, slot).is_empty() and _door_at(room, wall, slot).is_empty() \
+		and _wall_furniture_at(room, wall, slot).is_empty()
+
+## Somewhere free to move whatever is sitting on a door's spot, keeping clear of the other
+## spots that wall's door might want.
+func _free_spot_away_from(room: Dictionary, wall: int, slot: int, prefs: Array) -> Dictionary:
+	for w in 4:
+		for sl in Styles.slot_count(w):
+			if w == wall and (sl == slot or prefs.has(sl)):
+				continue
+			if _slot_clear(room, w, sl):
+				return {"wall": w, "slot": sl}
+	return {}
 
 func _shelf_at(room: Dictionary, wall: int, slot: int) -> Dictionary:
 	for s in room.get("shelves", []):

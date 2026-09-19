@@ -162,6 +162,8 @@ func _ready() -> void:
 	Library.placement_changed.connect(_on_placement_changed)
 	Library.book_updated.connect(_on_book_updated)
 	Library.tray_changed.connect(func(): hud.refresh_tray())
+	Library.doors_skipped.connect(func(names: Array):
+		hud.toast(tr("No wall left for a door: %s. Use the arrows at the top to walk between them.") % ", ".join(PackedStringArray(names)), 4.5))
 	BookAPI.cover_ready.connect(func(_id, _tex): hud.refresh_tray())
 
 	if demo:
