@@ -172,11 +172,28 @@ func add_room(room_name: String, emit := true) -> String:
 		furniture.append(Furniture.make(str(e["kind"]), float(e["x"]), float(e["z"]), float(e["rot"])))
 	var r := {"id": _new_id("r"), "name": room_name, "shelves": [], "furniture": furniture, "doors": []}
 	data["rooms"].append(r)
+	# doors first: which wall the window can have depends on which ones a door took
 	_assign_doors()
+	_add_window(r)
 	if emit:
 		structure_changed.emit()
 		save()
 	return r["id"]
+
+## A new room gets a window on the middle of a door-free wall. Daylight is not decor
+## the reader should have to go looking for, and a room with four blank walls reads as
+## a cellar.
+func _add_window(room: Dictionary) -> void:
+	var wall: int = Styles.window_wall(room)
+	if wall < 0:
+		return
+	var slot: int = Styles.center_slot(wall)
+	if slot < 0:
+		return
+	for d in room.get("doors", []):
+		if int(d["wall"]) == wall and int(d["slot"]) == slot:
+			return
+	room["furniture"].append(Furniture.make_wall("window", wall, slot))
 
 func rename_room(rid: String, room_name: String) -> void:
 	var r := get_room(rid)

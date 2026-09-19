@@ -156,6 +156,9 @@ static func build(entry: Dictionary, style: Dictionary) -> Node3D:
 ## The floor box a built piece occupies, in its own local space. Measured from the meshes,
 ## so a model is as big as it really is. Flat pieces (rug, cat) return an empty box: they are
 ## walked over rather than bumped into, so nothing should be blocked from standing on them.
+##
+## `node` must still be standing at the origin, untouched: the measurement starts from the
+## node's own transform, so a piece already moved into place would measure its move twice.
 static func footprint(node: Node3D, kind: String) -> Rect2:
 	if node == null or bool(CATALOG.get(kind, {}).get("flat", false)):
 		return Rect2()

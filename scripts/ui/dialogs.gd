@@ -533,7 +533,8 @@ func open_room_menu() -> void:
 	c.add_child(hud.spacer(6))
 	c.add_child(hud.label("This room", "SectionLabel"))
 	hud.tiles(c, [
-		{"label": "Add shelf", "icon": "shelf", "accent": true, "cb": func(): _start_place_shelf(rid)},
+		{"label": "Furnish", "icon": "sofa", "accent": true, "cb": func(): _start_furnishing(rid)},
+		{"label": "Add shelf", "icon": "shelf", "cb": func(): _start_place_shelf(rid)},
 		{"label": "Rename", "icon": "pencil", "cb": func():
 			prompt("Rename room", str(room["name"]), "Room name", func(t: String): Library.rename_room(rid, t))},
 		{"label": "New room", "icon": "door", "cb": func():
@@ -548,6 +549,16 @@ func open_room_menu() -> void:
 			Library.remove_room(rid)
 			hud.toast("Room deleted · books are in the tray")), true]])
 
+
+## Closes the sheet and hands over to the floor plan, where the room's furniture is
+## arranged.
+func _start_furnishing(rid: String) -> void:
+	hud.close_sheet()
+	if main().current_room_id() != rid:
+		# Room swaps fade out and back, and the fade rebuilds the room, so wait it out.
+		main().go_to_room_id(rid)
+		await main().get_tree().create_timer(0.6).timeout
+	main().enter_edit()
 
 ## Closes the sheet and hands over to the in-room preview, where a see-through case
 ## stands on a candidate spot and the arrows step through the free ones.

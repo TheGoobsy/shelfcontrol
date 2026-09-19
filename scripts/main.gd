@@ -1,7 +1,7 @@
 extends Node3D
 ## App root: owns the room, camera and HUD; routes touch input by mode.
 
-enum Mode { ROOM, SHELF }
+enum Mode { ROOM, SHELF, EDIT }
 
 const ROOM_PIVOT := Vector3(0, 1.5, 0.3)
 const ROOM_ORBIT := 1.7
@@ -41,6 +41,24 @@ var _last_preview := ""
 var _night_now := false
 var _last_tap_time := 0
 var _last_tap_pos := Vector2.ZERO
+
+## Furnishing a room: the floor is mapped green where a piece fits and red where one
+## already stands, seen either from where you are standing or straight down from above.
+var edit_overlay: EditOverlay
+var edit_top := true
+
+## Straight down on the room. The room is half again as wide as it is deep and a phone is
+## the other way round, so the plan is turned a quarter turn: the long walls run down the
+## screen and the room fills the width. West ends up at the top, north on the right.
+const PLAN_SIZE := 12.0
+const PLAN_HEIGHT := 9.0
+## Pushes the room up the screen, leaving the lower part for the inventory.
+const PLAN_SHIFT := 1.4
+
+## Looking straight down, turned a quarter so the room's long axis runs down the screen.
+## Built by hand because a "look at" cannot aim straight down: the direction and the
+## up vector would be the same line.
+const PLAN_BASIS := Basis(Vector3(0, 0, -1), Vector3(-1, 0, 0), Vector3(0, 1, 0))
 
 ## Choosing a spot for a new shelf: a see-through case stands on the candidate spot and
 ## the arrows step through every free spot in the room.
@@ -88,6 +106,9 @@ func _ready() -> void:
 			hud.dialogs.open_shelf_menu(active_shelf.shelf_id)
 		else:
 			hud.dialogs.open_room_menu())
+	hud.edit_room_pressed.connect(enter_edit)
+	hud.edit_view_pressed.connect(toggle_edit_view)
+	hud.edit_done_pressed.connect(exit_edit)
 	hud.place_prev_pressed.connect(func(): place_step(-1))
 	hud.place_next_pressed.connect(func(): place_step(1))
 	hud.place_confirm_pressed.connect(confirm_place_shelf)
@@ -193,8 +214,10 @@ func _go_through_door(to_rid: String) -> void:
 	_fade_to(func(): _load_room(idx, face))
 
 func _load_room(index: int, face_yaw := INF) -> void:
-	# The ghost lives under the room node, so a rebuild would leave placement half-alive.
+	# The ghost and the editing map live under the room node, so a rebuild would leave
+	# either of them half-alive.
 	cancel_place_shelf()
+	exit_edit()
 	room_index = clamp(index, 0, max(0, Library.room_count() - 1))
 	if is_finite(face_yaw):
 		yaw = face_yaw
@@ -218,6 +241,79 @@ func _update_room_hud() -> void:
 	if Library.room_count() > 1:
 		sub = tr("Room %d of %d") % [room_index + 1, Library.room_count()] + " · " + sub
 	hud.set_room_mode(str(room.get("name", "Room")), sub, Library.room_count() > 1)
+
+# ---------------------------------------------------------------- furnishing a room
+
+func enter_edit() -> void:
+	if mode == Mode.SHELF:
+		exit_shelf()
+	cancel_place_shelf()
+	mode = Mode.EDIT
+	if edit_overlay == null:
+		edit_overlay = EditOverlay.new()
+		# under the room node, so a rebuild takes the map with it
+		room3d.add_child(edit_overlay)
+	refresh_overlay()
+	_update_edit_camera(false)
+	_update_edit_hud()
+
+func exit_edit() -> void:
+	if mode != Mode.EDIT:
+		return
+	mode = Mode.ROOM
+	if edit_overlay != null:
+		edit_overlay.queue_free()
+		edit_overlay = null
+	room3d.set_ceiling_visible(true)
+	hud.set_editing(false)
+	rig.go_to(_room_eye(), _room_basis(), ROOM_FOV, 0.4)
+	_update_room_hud()
+
+func toggle_edit_view() -> void:
+	edit_top = not edit_top
+	_update_edit_camera(false)
+	_update_edit_hud()
+
+## Every floor box already spoken for in this room: the furniture standing in it, the
+## bookcases, and the doors. `skip` leaves one piece out, which is what moving a piece
+## needs so it does not collide with the spot it is being lifted from.
+func blocked_rects(skip := "") -> Array:
+	var out: Array = []
+	for f in room3d.furniture_rects(skip):
+		out.append(f["rect"])
+	var room := current_room()
+	for sh in room.get("shelves", []):
+		out.append(_wall_rect(int(sh["wall"]), int(sh["slot"]), Styles.SHELF_D))
+	for d in room.get("doors", []):
+		out.append(_wall_rect(int(d["wall"]), int(d["slot"]), 0.12))
+	return out
+
+## The floor box of something standing on a wall slot, squared up to the room's axes.
+func _wall_rect(wall: int, slot: int, depth: float) -> Rect2:
+	var t := Styles.shelf_transform(wall, slot)
+	var size := Vector2(Styles.SHELF_W, depth) if wall % 2 == 0 else Vector2(depth, Styles.SHELF_W)
+	return Rect2(Vector2(t.origin.x, t.origin.z) - size / 2.0, size)
+
+func refresh_overlay() -> void:
+	if edit_overlay != null:
+		edit_overlay.refresh(current_room(), blocked_rects())
+
+## Looking straight down, or standing in the room the way you normally do.
+func _update_edit_camera(animate: bool) -> void:
+	room3d.set_ceiling_visible(not edit_top)
+	if edit_top:
+		rig.snap_ortho(Vector3(PLAN_SHIFT, PLAN_HEIGHT, 0), PLAN_BASIS, PLAN_SIZE)
+	elif animate:
+		rig.go_to(_room_eye(), _room_basis(), ROOM_FOV, 0.4)
+	else:
+		rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+
+func _update_edit_hud() -> void:
+	var room := current_room()
+	var n := Library.get_furniture(current_room_id()).size()
+	var sub := tr("Plan view") if edit_top else tr("Room view")
+	sub += " · " + (tr("1 piece") if n == 1 else tr("%d pieces") % n)
+	hud.set_editing(true, str(room.get("name", "Room")), sub, edit_top)
 
 # ---------------------------------------------------------------- placing a shelf
 
@@ -335,9 +431,14 @@ func _on_structure_changed() -> void:
 	_apply_style()
 	var keep_shelf := active_shelf.shelf_id if active_shelf else ""
 	var was_shelf := mode == Mode.SHELF
+	var was_editing := mode == Mode.EDIT
 	room_index = clamp(room_index, 0, max(0, Library.room_count() - 1))
 	room3d.build(current_room(), style)
-	if was_shelf and room3d.shelves.has(keep_shelf):
+	# the overlay lives under the room node, so the rebuild took it with it
+	edit_overlay = null
+	if was_editing:
+		enter_edit()
+	elif was_shelf and room3d.shelves.has(keep_shelf):
 		active_shelf = room3d.shelves[keep_shelf]
 		mode = Mode.SHELF
 		var view := _shelf_view(active_shelf)
@@ -571,7 +672,15 @@ func _on_motion(pos: Vector2) -> void:
 	elif camera_dragging:
 		var rel := pos - last_pos
 		var sens: float = 0.0021 * float(Settings.get_value("look_sensitivity"))
-		if mode == Mode.ROOM:
+		if mode == Mode.EDIT:
+			# the plan is a fixed map; only the room view turns
+			if not edit_top:
+				var sx := -1.0 if Settings.get_value("invert_look_x") else 1.0
+				var sy := -1.0 if Settings.get_value("invert_look_y") else 1.0
+				yaw -= rel.x * sens * sx
+				pitch = clamp(pitch - rel.y * sens * sy, -0.85, 0.65)
+				rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+		elif mode == Mode.ROOM:
 			var sx := -1.0 if Settings.get_value("invert_look_x") else 1.0
 			var sy := -1.0 if Settings.get_value("invert_look_y") else 1.0
 			yaw -= rel.x * sens * sx
@@ -596,6 +705,8 @@ func _on_release(pos: Vector2) -> void:
 
 func _on_tap(pos: Vector2) -> void:
 	if rig.moving:
+		return
+	if mode == Mode.EDIT:
 		return
 	if mode == Mode.ROOM:
 		# While choosing a spot, taps must not open a shelf or walk through a door.
@@ -991,6 +1102,11 @@ func _run_shot() -> void:
 		"box":
 			var eye := Vector3(-0.7, 1.1, 0.9)
 			rig.snap(eye, CameraRig.look_basis(eye, _prop_aim("archive", 0.15)), 38.0)
+		"edit":
+			enter_edit()
+		"edit_room":
+			enter_edit()
+			toggle_edit_view()
 		"reading":
 			hud.dialogs.open_reading_list()
 		"archive":

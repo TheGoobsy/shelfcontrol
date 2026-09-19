@@ -9,6 +9,7 @@ keys,en,de
 %d books,%d books,%d Bücher
 %d covers turned out,%d covers turned out,%d Cover nach vorne gedreht
 %d pages,%d pages,%d Seiten
+%d pieces,%d pieces,%d Möbelstücke
 %d results · tap Add,%d results · tap Add,%d Treffer · tippe Hinzufügen
 %d shelves,%d shelves,%d Regale
 %s wall · spot %d,%s wall · spot %d,%s-Wand · Platz %d
@@ -17,6 +18,7 @@ keys,en,de
 %s · %s wall,%s · %s wall,%s · %s-Wand
 1 book,1 book,1 Buch
 1 cover turned out,1 cover turned out,1 Cover nach vorne gedreht
+1 piece,1 piece,1 Möbelstück
 1 result · tap Add,1 result · tap Add,1 Treffer · tippe Hinzufügen
 1 shelf,1 shelf,1 Regal
 A small plate on the front of the case carrying this shelf's name.,A small plate on the front of the case carrying this shelf's name.,Ein kleines Schild vorne am Regal mit dem Namen dieses Regals.
@@ -71,6 +73,7 @@ Delete “%s”?,Delete “%s”?,„%s“ löschen?
 Details updated from the catalogue,Details updated from the catalogue,Details aus dem Katalog aktualisiert
 Details,Details,Details
 Deutsch,Deutsch,Deutsch
+Done,Done,Fertig
 Done. Covers fetched for your new books.,Done. Covers fetched for your new books.,Fertig. Cover für deine neuen Bücher geladen.
 Doors: ,Doors: ,Türen: 
 Drop here to move the book to the tray,Drop here to move the book to the tray,"Hier loslassen, um das Buch in die Ablage zu legen"
@@ -89,6 +92,7 @@ Fetch missing covers,Fetch missing covers,Fehlende Cover laden
 Fetching covers… %d / %d,Fetching covers… %d / %d,Cover werden geladen… %d / %d
 "Filter by title, author, genre, tag…","Filter by title, author, genre, tag…","Nach Titel, Autor, Genre, Tag filtern…"
 Finished reading,Finished reading,Fertig gelesen
+Furnish,Furnish,Einrichten
 Furniture,Furniture,Einrichtung
 Genre,Genre,Genre
 Genres & tags,Genres & tags,Genres & Tags
@@ -161,6 +165,7 @@ Paste the CSV contents here,Paste the CSV contents here,CSV-Inhalt hier einfüge
 "Pick a free spot along a wall. Spots are numbered left to right as seen from the middle of the room. Doors, the window and the fireplace keep their spots.","Pick a free spot along a wall. Spots are numbered left to right as seen from the middle of the room. Doors, the window and the fireplace keep their spots.","Wähle einen freien Platz an einer Wand. Plätze sind von links nach rechts nummeriert, gesehen aus der Raummitte. Türen, Fenster und Kamin behalten ihre Plätze."
 Place shelf,Place shelf,Regal hier aufstellen
 Placed on row %d,Placed on row %d,In Reihe %d gestellt
+Plan view,Plan view,Grundriss
 Please enter a title,Please enter a title,Bitte gib einen Titel ein
 Previous spot,Previous spot,Vorheriger Platz
 Put in tray,Put in tray,In die Ablage
@@ -186,6 +191,7 @@ Restore,Restore,Wiederherstellen
 Room %d of %d,Room %d of %d,Raum %d von %d
 Room deleted · books are in the tray,Room deleted · books are in the tray,Raum gelöscht · Bücher liegen in der Ablage
 Room name,Room name,Raumname
+Room view,Room view,Raumansicht
 Room view: swipe down to look up.,Room view: swipe down to look up.,Raumansicht: nach unten wischen schaut nach oben.
 "Room view: swipe right to turn left, like grabbing the room.","Room view: swipe right to turn left, like grabbing the room.","Raumansicht: nach rechts wischen dreht nach links, als würdest du den Raum greifen."
 Row %d,Row %d,Reihe %d

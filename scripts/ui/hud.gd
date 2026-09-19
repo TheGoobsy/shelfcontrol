@@ -15,6 +15,9 @@ signal title_pressed()
 signal settings_pressed()
 signal books_pressed()
 signal edit_pressed()
+signal edit_room_pressed()
+signal edit_view_pressed()
+signal edit_done_pressed()
 signal place_prev_pressed()
 signal place_next_pressed()
 signal place_confirm_pressed()
@@ -56,6 +59,9 @@ var serif_bold: Font
 var mode_shelf := false
 var placing_id := ""
 var placing_shelf := false
+var editing := false
+var edit_panel: PanelContainer
+var edit_view_btn: Button
 var place_panel: PanelContainer
 var place_where: Label
 var place_count: Label
@@ -375,6 +381,8 @@ func _layout() -> void:
 	bottom_bar.offset_right = -(24 + 108 + 16) if mode_shelf else -24
 	if place_panel != null:
 		place_panel.offset_bottom = -(bottom_inset + 24)
+	if edit_panel != null:
+		edit_panel.offset_bottom = -(bottom_inset + 24)
 	back_btn.offset_bottom = -(bottom_inset + 24)
 	toast_panel.offset_top = top_inset + 190
 	side_box.offset_top = top_inset + 24 + top_bar.get_combined_minimum_size().y + 18
@@ -393,7 +401,9 @@ func _build_top() -> void:
 	title_btn.theme_type_variation = "GhostButton"
 	title_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_btn.custom_minimum_size = Vector2(0, 96)
-	title_btn.pressed.connect(func(): title_pressed.emit())
+	title_btn.pressed.connect(func():
+		if not editing:
+			title_pressed.emit())
 	hb.add_child(title_btn)
 	var vb := VBoxContainer.new()
 	vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -528,6 +538,7 @@ func _build_bottom() -> void:
 	back_btn.pressed.connect(func(): back_pressed.emit())
 	root.add_child(back_btn)
 	_build_place_bar()
+	_build_edit_bar()
 
 ## Bar shown while a see-through shelf is standing on a candidate spot: step through the
 ## free spots with the arrows, then commit. Sits where the tray normally is.
@@ -577,6 +588,44 @@ func _build_place_bar() -> void:
 	cancel.pressed.connect(func(): place_cancel_pressed.emit())
 	v.add_child(cancel)
 
+## Bar shown while a room is being furnished: switch between the plan and standing in
+## the room, and finish. Sits where the tray normally is.
+func _build_edit_bar() -> void:
+	edit_panel = PanelContainer.new()
+	edit_panel.theme_type_variation = "Card"
+	edit_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	edit_panel.offset_left = 24
+	edit_panel.offset_right = -24
+	edit_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	edit_panel.visible = false
+	root.add_child(edit_panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	edit_panel.add_child(v)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	v.add_child(h)
+	edit_view_btn = button(tr("Room view"), "GhostButton", 92)
+	edit_view_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	edit_view_btn.pressed.connect(func(): edit_view_pressed.emit())
+	h.add_child(edit_view_btn)
+	var done := button(tr("Done"), "AccentButton", 92)
+	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	done.pressed.connect(func(): edit_done_pressed.emit())
+	h.add_child(done)
+
+## Turns the furnishing interface on. The title bar keeps naming the room, so the reader
+## can still see which one they are arranging.
+func set_editing(on: bool, room_name := "", subtitle := "", top_view := true) -> void:
+	editing = on
+	edit_panel.visible = on
+	if on:
+		title_lbl.text = room_name
+		sub_lbl.text = subtitle
+		edit_view_btn.text = tr("Room view") if top_view else tr("Plan view")
+	_rebuild_actions()
+	refresh_tray()
+
 func set_placing_shelf(on: bool) -> void:
 	placing_shelf = on
 	place_panel.visible = on
@@ -594,12 +643,13 @@ func set_place_info(where: String, count: String, warn := "") -> void:
 func _rebuild_actions() -> void:
 	# While a spot is being chosen the placement bar is the only chrome on screen: the
 	# room title, its arrows and the side actions would all navigate away mid-placement.
-	var idle := not placing_shelf
+	var idle := not placing_shelf and not editing
 	back_btn.visible = mode_shelf and idle
 	# The bottom bar is left to refresh_tray, which hides it when there is nothing to
 	# show. Forcing it visible here brought back an empty bar after cancelling.
 	side_box.visible = idle
-	top_bar.visible = idle
+	# the title keeps naming the room being furnished, but its arrows would walk away from it
+	top_bar.visible = idle or editing
 	top_prev.visible = idle
 	top_next.visible = idle
 	prev_btn.visible = _has_multiple and idle
@@ -644,7 +694,7 @@ func refresh_tray() -> void:
 		if b.is_empty():
 			continue
 		tray_box.add_child(_make_chip(b, id == placing_id))
-	tray_panel.visible = not placing_shelf and (_drag_tray or mode_shelf or not ids.is_empty())
+	tray_panel.visible = not placing_shelf and not editing and (_drag_tray or mode_shelf or not ids.is_empty())
 	bottom_bar.visible = tray_panel.visible
 	# with no books the bar is just the hint; match the floating back button's height
 	bottom_bar.custom_minimum_size = Vector2(0, 108 if ids.is_empty() else 0)

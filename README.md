@@ -21,6 +21,7 @@ A 3D virtual library for Android, built with Godot 4.7. Walk through styled room
 - **Room management** (pencil icon, top right): rename rooms and shelves, add shelves, change the library style, add or delete rooms. In a shelf view the pencil edits that shelf.
 - **Sorting a shelf** (shelf menu → Sort books): reorders the whole case by title, author, genre or year and repacks the rows from the top. A book that will not fit the row it lands on starts the next one.
 - **Shelf name tags** (shelf menu → Name tag): an optional plate on the front of the case carrying the shelf's name, in brass, silver, wood, paper or slate.
+- **Furnishing a room** (pencil icon → *Furnish*): the floor is mapped while you arrange it — green where a piece would fit, red where something already stands — and the ring of wall spots the bookcases live on is outlined on top, red where a case, a door, the window or the fireplace has claimed one. *Plan view* looks straight down (the room is turned a quarter turn so it fills a portrait screen, with the ceiling out of the way); *Room view* maps the same floor from where you are standing.
 - **Placing a shelf**: *Add shelf* drops a see-through bookcase onto a free wall spot and turns the room to face it. The rest of the interface steps aside so nothing navigates away mid-placement. The arrows step through every free spot in the room, *Place shelf* commits and opens the new shelf, *Cancel* backs out. Spots held by a door, the window or the fireplace are not offered, so a bookcase never costs you a piece you placed.
 - **Night mode** (Settings → Scene): off, on, or automatic from 19:00 to 07:00. Starry sky and moon in the window, faint moonlight, lamps and fire carry the room.
 - **Menus** are bottom sheets built from a few shared parts: titled section cards, icon tile grids for actions, chip rows for exclusive choices (room type, status, night mode, filters), and quiet text links for rare or destructive actions. Sheets size to their content and lift above the keyboard.
@@ -43,6 +44,7 @@ scripts/
   goodreads_import.gd    CSV parser for Goodreads exports
   room3d.gd              Builds the room shell, lights, furniture and shelves
   furniture.gd           Catalogue of placeable pieces: what exists, how to build one, how much floor it takes
+  edit_overlay.gd        The green/red floor map shown while a room is being furnished
   shelf3d.gd             Bookcase geometry, book layout, hit-testing
   book3d.gd / book_mesh.gd  A single book: two-surface mesh, spine label, cover quad
   decor.gd               Procedural props (plants, rug, fireplace, cat, window, lamps, armchair, reading table, archive box…)
@@ -75,7 +77,7 @@ Screenshot harness (used during development):
 
 ```bash
 godot --path . --resolution 540x1080 -- --demo --mode=shelf --shot=/tmp/shelf.png
-# modes: look, look2, study, shelf, shelf2, closeup, fire, cat, table, chair, window, door, door_go, attic, attic_n, keep_fire, keep_corner, box, focus_table, focus_box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, place, place_win, place_fire, place_go, place_cancel, trayfly, trayfly_out, tag, tag2, sorted, add, import, style, room, move, settings, books, reading, archive
+# modes: look, look2, study, edit, edit_room, shelf, shelf2, closeup, fire, cat, table, chair, window, door, door_go, attic, attic_n, keep_fire, keep_corner, box, focus_table, focus_box, ghost, office, office2, bedroom, fantasy, fantasy2, drag, dragtray, zoomtap, detail, place, place_win, place_fire, place_go, place_cancel, trayfly, trayfly_out, tag, tag2, sorted, add, import, style, room, move, settings, books, reading, archive
 # add --style=timber_lodge (or any style id) to render a different style
 # add --night to render with night mode on, --lang=de for German
 godot --headless --path . -- --demo --apitest

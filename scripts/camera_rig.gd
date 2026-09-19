@@ -17,14 +17,28 @@ func _ready() -> void:
 func snap(pos: Vector3, basis: Basis, fov: float) -> void:
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
+	cam.projection = Camera3D.PROJECTION_PERSPECTIVE
 	position = pos
 	quaternion = basis.get_rotation_quaternion()
 	cam.fov = fov
 	moving = false
 
+## Straight-down editing view. An orthographic camera is what a floor plan wants: two
+## pieces of furniture the same size read the same size wherever they stand, which a
+## perspective view cannot promise. `size` is the vertical extent of the floor on screen.
+func snap_ortho(pos: Vector3, basis: Basis, size: float) -> void:
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	position = pos
+	quaternion = basis.get_rotation_quaternion()
+	cam.size = size
+	moving = false
+
 func go_to(pos: Vector3, basis: Basis, fov: float, duration := 0.6) -> void:
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
+	cam.projection = Camera3D.PROJECTION_PERSPECTIVE
 	moving = true
 	_tween = create_tween().set_parallel(true)
 	_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)

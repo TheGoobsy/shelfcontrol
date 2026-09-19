@@ -13,6 +13,7 @@ var decor_nodes: Array[Node3D] = []   # furniture that may be faded out of the w
 ## Every placed piece, keyed by its furniture id: {node, kind, entry, rect}. `rect` is the
 ## floor box it occupies in room space, which is what the editor tests a new piece against.
 var furniture: Dictionary = {}
+var ceiling: MeshInstance3D
 var _decor_boxes: Array[AABB] = []
 var _fade_args := []   # [eye, shelf, amount] of the fade in force, so rebuilt props match
 
@@ -77,7 +78,7 @@ func _build_shell() -> void:
 	if style.has("wall_accent"):
 		accent_mat = Materials.from_spec(style["wall_accent"])
 	_box(Vector3(W + 0.4, 0.1, D + 0.4), Vector3(0, -0.05, 0), floor_mat)
-	_box(Vector3(W + 0.4, 0.1, D + 0.4), Vector3(0, H + 0.05, 0), ceil_mat)
+	ceiling = _box(Vector3(W + 0.4, 0.1, D + 0.4), Vector3(0, H + 0.05, 0), ceil_mat)
 	_box(Vector3(W + 0.4, H + 0.2, 0.1), Vector3(0, H / 2.0, -D / 2.0 - 0.05), accent_mat)
 	_box(Vector3(W + 0.4, H + 0.2, 0.1), Vector3(0, H / 2.0, D / 2.0 + 0.05), wall_mat)
 	_box(Vector3(0.1, H + 0.2, D + 0.4), Vector3(W / 2.0 + 0.05, H / 2.0, 0), wall_mat)
@@ -125,6 +126,12 @@ func _build_doors() -> void:
 		dn.transform = Styles.wall_transform(int(d["wall"]), Styles.slot_offset(int(d["wall"]), int(d["slot"])), 0.12)
 		doors[str(d["to"])] = dn
 
+## The top-down editing view looks through where the ceiling is, so it goes away while
+## the room is being furnished. Hanging lamps stay: they are furniture like any other.
+func set_ceiling_visible(on: bool) -> void:
+	if ceiling != null:
+		ceiling.visible = on
+
 ## Target room id for a tapped door body, or "".
 func door_by_body(body: Object) -> String:
 	if body == null or not body.has_meta("door_to"):
@@ -155,13 +162,19 @@ func _place_entry(e: Dictionary) -> void:
 		return
 	add_child(node)
 	var sp := Furniture.spec(kind)
+	# Measured while the piece is still standing at the origin: the box is its own extent,
+	# which the placement below then moves. Reading it afterwards would count the move twice.
+	var local := Furniture.footprint(node, kind)
 	var rect := Rect2()
 	match Furniture.anchor(kind):
 		Furniture.WALL:
 			var wall := int(e.get("wall", 0))
 			var slot := int(e.get("slot", 0))
-			node.transform = Styles.wall_transform(wall, Styles.slot_offset(wall, slot), float(sp.get("depth", 0.2)))
+			var t := Styles.wall_transform(wall, Styles.slot_offset(wall, slot), float(sp.get("depth", 0.2)))
+			node.transform = t
 			node.position.y = float(sp.get("y", 0.0))
+			# a fireplace stands well out from the wall, so it takes real floor
+			rect = Furniture.world_rect(local, t.origin.x, t.origin.z, t.basis.get_euler().y)
 		Furniture.CEILING:
 			node.position = Vector3(float(e.get("x", 0.0)), float(sp.get("y", Styles.ROOM_H)), float(e.get("z", 0.0)))
 			node.rotation.y = float(e.get("rot", 0.0))
@@ -172,11 +185,11 @@ func _place_entry(e: Dictionary) -> void:
 			# a piece may sit on top of another one (a candle on a crate), so it keeps its height
 			node.position = Vector3(x, float(e.get("y", 0.0)), z)
 			node.rotation.y = rot
-			rect = Furniture.world_rect(Furniture.footprint(node, kind), x, z, rot)
+			rect = Furniture.world_rect(local, x, z, rot)
 	match kind:
 		"reading_table": table = node
 		"archive_box": archive = node
-	furniture[str(e.get("id", ""))] = {"node": node, "kind": kind, "entry": e, "rect": rect}
+	furniture[str(e.get("id", ""))] = {"node": node, "kind": kind, "entry": e, "rect": rect, "local": local}
 
 ## The floor boxes the room's furniture stands on, as {id, kind, rect} in room space.
 ## `skip` leaves one piece out, which is what moving a piece needs so it does not
