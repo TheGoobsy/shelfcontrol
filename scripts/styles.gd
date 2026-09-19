@@ -161,30 +161,6 @@ var styles: Dictionary = {
 	},
 }
 
-## Furniture sets, chosen per room. "living" uses the style's own decor list.
-const ROOM_TYPES := {
-	"living": {"name": "Living room", "blurb": "Armchair, side table, lamp and the style's own touches."},
-	"office": {"name": "Office", "blurb": "Writing desk with a lamp, swivel chair, globe and plants.",
-		"decor": ["window", "desk", "office_chair", "plant", "plant", "globe", "pendant", "cat"]},
-	"bedroom": {"name": "Bedroom", "blurb": "Bed with pillows, nightstand lamp, rug and a sleeping cat.",
-		"decor": ["window", "bed", "nightstand", "rug", "cat", "plant", "pendant"]},
-	"fantasy": {"name": "Fantasy library", "blurb": "Candelabras, a lectern with an open tome, a crystal ball and a candle chandelier.",
-		"decor": ["fireplace", "rug", "cat", "candelabra", "candelabra", "lectern", "crystal_ball", "chandelier", "globe", "plant"]},
-}
-
-func room_type_ids() -> Array:
-	return ROOM_TYPES.keys()
-
-func room_type(id: String) -> Dictionary:
-	return ROOM_TYPES.get(id, ROOM_TYPES["living"])
-
-## The decor list for a room: its type's furniture, or the style's list for a living room.
-func room_decor(room: Dictionary, style: Dictionary) -> Array:
-	var t := str(room.get("type", "living"))
-	if t == "living" or not ROOM_TYPES.has(t):
-		return style.get("decor", [])
-	return ROOM_TYPES[t]["decor"]
-
 func ids() -> Array:
 	return styles.keys()
 

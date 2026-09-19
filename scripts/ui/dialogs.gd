@@ -355,7 +355,7 @@ func _on_cover_progress(done: int, total: int) -> void:
 
 func open_style() -> void:
 	var c := hud.open_sheet("Library style", 0.8)
-	c.add_child(hud.label("Walls, floor, shelves and colours for the whole library. Furniture is chosen per room (Room type).", "MutedLabel"))
+	c.add_child(hud.label("Walls, floor, shelves and colours for the whole library. The furniture in each room stays where you put it.", "MutedLabel"))
 	var current := Library.get_style_id()
 	var g := GridContainer.new()
 	g.columns = 2
@@ -531,14 +531,6 @@ func open_room_menu() -> void:
 		c.add_child(hud.label(tr("Doors: ") + " · ".join(PackedStringArray(door_parts)), "SubLabel"))
 
 	c.add_child(hud.spacer(6))
-	c.add_child(hud.label("Furniture", "SectionLabel"))
-	var type_opts: Array = []
-	for tid in Styles.room_type_ids():
-		type_opts.append([tid, Styles.room_type(tid)["name"]])
-	hud.segmented(c, type_opts, str(room.get("type", "living")), func(k):
-		Library.set_room_type(rid, k)
-		hud.toast(tr("%s is now a %s") % [str(room.get("name", "")), tr(Styles.room_type(k)["name"]).to_lower()]), true)
-	c.add_child(hud.spacer(6))
 	c.add_child(hud.label("This room", "SectionLabel"))
 	hud.tiles(c, [
 		{"label": "Add shelf", "icon": "shelf", "accent": true, "cb": func(): _start_place_shelf(rid)},
@@ -555,11 +547,6 @@ func open_room_menu() -> void:
 		confirm(tr("Delete “%s”?") % str(room["name"]), tr("Its shelves are removed and all %d books move to the tray.") % Library.room_book_count(rid), "Delete room", func():
 			Library.remove_room(rid)
 			hud.toast("Room deleted · books are in the tray")), true]])
-
-
-func open_room_type(_rid: String) -> void:
-	# kept for callers; the room menu now offers the furniture chips inline
-	open_room_menu()
 
 
 ## Closes the sheet and hands over to the in-room preview, where a see-through case

@@ -10,19 +10,14 @@ var table: Node3D
 var archive: Node3D
 var doors: Dictionary = {}   # target room id -> door Node3D
 var decor_nodes: Array[Node3D] = []   # furniture that may be faded out of the way
-## Decor standing on a wall slot, which a shelf taking that slot would displace.
-## Kept so the placement preview can show what a spot costs. [{node, wall, slot, what}]
-var slot_decor: Array = []
+## Every placed piece, keyed by its furniture id: {node, kind, entry, rect}. `rect` is the
+## floor box it occupies in room space, which is what the editor tests a new piece against.
+var furniture: Dictionary = {}
 var _decor_boxes: Array[AABB] = []
 var _fade_args := []   # [eye, shelf, amount] of the fade in force, so rebuilt props match
 
-const TABLE_POS := Vector3(0.35, 0, 0.15)
-const ARCHIVE_POS := Vector3(-1.9, 0, 2.5)
 const TABLE_STACK_MAX := 6
 const ARCHIVE_SHOW_MAX := 10
-
-const PLANT_CORNERS := [Vector3(-3.05, 0, -2.05), Vector3(3.05, 0, -2.05), Vector3(-3.05, 0, 2.1), Vector3(3.1, 0, 2.5)]
-const CANDLE_SPOTS := [Vector3(-2.3, 0, 1.9), Vector3(2.3, 0, 1.9), Vector3(0, 0, -2.2)]
 
 func build(r: Dictionary, st: Dictionary) -> void:
 	room = r
@@ -33,14 +28,14 @@ func build(r: Dictionary, st: Dictionary) -> void:
 	shelves.clear()
 	doors.clear()
 	decor_nodes.clear()
+	furniture.clear()
 	_decor_boxes.clear()
 	_build_environment()
 	_build_shell()
 	_build_lights()
 	_build_shelves()
 	_build_doors()
-	_build_decor()
-	_build_props()
+	_build_furniture()
 
 func _box(size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -136,133 +131,70 @@ func door_by_body(body: Object) -> String:
 		return ""
 	return str(body.get_meta("door_to"))
 
-## Hides whatever a shelf on this slot would displace, so the placement preview shows
-## the cost of the spot. Pass (-1, -1) to bring everything back. Returns what it hid.
-func preview_hide(wall: int, slot: int) -> String:
-	var hidden := ""
-	for d in slot_decor:
-		var n: Node3D = d["node"]
-		if not is_instance_valid(n):
-			continue
-		var on_spot: bool = int(d["wall"]) == wall and int(d["slot"]) == slot
-		n.visible = not on_spot
-		if on_spot:
-			hidden = str(d["what"])
-	return hidden
-
 func occupied(wall: int, slot: int) -> bool:
-	for s in room.get("shelves", []):
-		if int(s["wall"]) == wall and int(s["slot"]) == slot:
+	for sh in room.get("shelves", []):
+		if int(sh["wall"]) == wall and int(sh["slot"]) == slot:
 			return true
 	return false
 
-func _build_decor() -> void:
-	slot_decor.clear()
+## Builds the room's furnishing from its furniture list. Nothing here is decided by a
+## style or a room type any more: the list is what the reader arranged in the editor.
+func _build_furniture() -> void:
+	table = null
+	archive = null
 	var first := get_child_count()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(str(room.get("id", "")) + str(style.get("name", "")))
-	var plant_i := 0
-	var candle_i := 0
-	var has_fireplace := false
-	var fire_pos := Vector3(0, 0, Styles.ROOM_D / 2.0)
-	for d in Styles.room_decor(room, style):
-		if d is Dictionary:
-			_place_model(d)
-			continue
-		match str(d):
-			"fireplace":
-				var cs: int = Styles.center_slot(2)
-				if cs >= 0 and not occupied(2, cs):
-					var f := Decor.fireplace(style)
-					add_child(f)
-					f.transform = Styles.wall_transform(2, 0.0, 0.5)
-					has_fireplace = true
-					slot_decor.append({"node": f, "wall": 2, "slot": cs, "what": "fireplace"})
-			"window":
-				# the window sits on the north wall unless a door took it, then on a door-free side wall
-				var ww: int = Styles.window_wall(room)
-				var cs: int = Styles.center_slot(ww) if ww >= 0 else -1
-				if cs >= 0 and not occupied(ww, cs):
-					var w := Decor.window(style)
-					add_child(w)
-					w.transform = Styles.wall_transform(ww, 0.0, 0.1)
-					slot_decor.append({"node": w, "wall": ww, "slot": cs, "what": "window"})
-			"rug":
-				var r := Decor.rug(style)
-				add_child(r)
-				r.position = Vector3(0, 0, 0.3)
-			"plant":
-				if plant_i < PLANT_CORNERS.size():
-					var p := Decor.plant(style, rng)
-					add_child(p)
-					p.position = PLANT_CORNERS[plant_i]
-					p.rotation.y = rng.randf() * TAU
-					plant_i += 1
-			"armchair":
-				var a := Decor.armchair(style)
-				add_child(a)
-				a.position = Vector3(1.75, 0, 1.25)
-				var target := fire_pos if has_fireplace else Vector3(0, 0, -1.0)
-				var dir := target - a.position
-				a.rotation.y = atan2(dir.x, dir.z)
-			"side_table":
-				var t := Decor.side_table(style, rng)
-				add_child(t)
-				t.position = Vector3(2.55, 0, 1.05)
-			"floor_lamp":
-				var l := Decor.floor_lamp(style)
-				add_child(l)
-				l.position = Vector3(2.75, 0, 2.15)
-			"pendant":
-				var p := Decor.pendant(style)
-				add_child(p)
-				p.position = Vector3(0, Styles.ROOM_H, 0.3)
-			"cat":
-				var k := Decor.cat(style)
-				add_child(k)
-				k.position = Vector3(-0.75, 0.014, 0.85)
-				k.rotation.y = 2.4
-			"globe":
-				var g := Decor.globe(style)
-				add_child(g)
-				g.position = Vector3(-2.55, 0, 1.9)
-			"desk":
-				var dk := Decor.desk(style)
-				add_child(dk)
-				dk.position = Vector3(1.7, 0, 1.15)
-			"office_chair":
-				var oc := Decor.office_chair(style)
-				add_child(oc)
-				oc.position = Vector3(1.75, 0, 1.95)
-				oc.rotation.y = PI + 0.25
-			"bed":
-				var bd := Decor.bed(style)
-				add_child(bd)
-				bd.position = Vector3(-1.9, 0, 1.75)
-			"nightstand":
-				var ns := Decor.nightstand(style)
-				add_child(ns)
-				ns.position = Vector3(-0.95, 0, 2.5)
-			"candelabra":
-				if candle_i < CANDLE_SPOTS.size():
-					var cd := Decor.candelabra(style)
-					add_child(cd)
-					cd.position = CANDLE_SPOTS[candle_i]
-					candle_i += 1
-			"lectern":
-				var lc := Decor.lectern(style)
-				add_child(lc)
-				lc.position = Vector3(1.6, 0, -1.1)
-				lc.rotation.y = -0.5
-			"crystal_ball":
-				var cb := Decor.crystal_ball(style)
-				add_child(cb)
-				cb.position = Vector3(-1.7, 0, -1.2)
-			"chandelier":
-				var ch := Decor.chandelier(style)
-				add_child(ch)
-				ch.position = Vector3(0, Styles.ROOM_H, 0.3)
+	for e in room.get("furniture", []):
+		_place_entry(e)
 	_track_decor(first)
+	refresh_props()
+
+func _place_entry(e: Dictionary) -> void:
+	var kind := str(e.get("kind", ""))
+	var node := Furniture.build(e, style)
+	if node == null:
+		return
+	add_child(node)
+	var sp := Furniture.spec(kind)
+	var rect := Rect2()
+	match Furniture.anchor(kind):
+		Furniture.WALL:
+			var wall := int(e.get("wall", 0))
+			var slot := int(e.get("slot", 0))
+			node.transform = Styles.wall_transform(wall, Styles.slot_offset(wall, slot), float(sp.get("depth", 0.2)))
+			node.position.y = float(sp.get("y", 0.0))
+		Furniture.CEILING:
+			node.position = Vector3(float(e.get("x", 0.0)), float(sp.get("y", Styles.ROOM_H)), float(e.get("z", 0.0)))
+			node.rotation.y = float(e.get("rot", 0.0))
+		_:
+			var x := float(e.get("x", 0.0))
+			var z := float(e.get("z", 0.0))
+			var rot := float(e.get("rot", 0.0))
+			# a piece may sit on top of another one (a candle on a crate), so it keeps its height
+			node.position = Vector3(x, float(e.get("y", 0.0)), z)
+			node.rotation.y = rot
+			rect = Furniture.world_rect(Furniture.footprint(node, kind), x, z, rot)
+	match kind:
+		"reading_table": table = node
+		"archive_box": archive = node
+	furniture[str(e.get("id", ""))] = {"node": node, "kind": kind, "entry": e, "rect": rect}
+
+## The floor boxes the room's furniture stands on, as {id, kind, rect} in room space.
+## `skip` leaves one piece out, which is what moving a piece needs so it does not
+## collide with the spot it is being lifted from.
+func furniture_rects(skip := "") -> Array:
+	var out: Array = []
+	for fid in furniture:
+		if fid == skip:
+			continue
+		var f: Dictionary = furniture[fid]
+		if f["rect"].size == Vector2.ZERO:
+			continue
+		out.append({"id": fid, "kind": f["kind"], "rect": f["rect"]})
+	return out
+
+func furniture_node(fid: String) -> Node3D:
+	var f: Dictionary = furniture.get(fid, {})
+	return f.get("node", null)
 
 ## Remembers the furniture added since `first`, with the world box each piece occupies,
 ## so shelf mode can fade whatever stands in front of the books.
@@ -272,28 +204,6 @@ func _track_decor(first: int) -> void:
 		if c is Node3D and not (c is Light3D):
 			decor_nodes.append(c)
 			_decor_boxes.append(global_transform * Decor.model_aabb(c))
-
-## A decor entry given as a dictionary places an imported model:
-## {"model": "GreenChair_01", "set": "keep", "pos": Vector3, "rot": float, "scale": float,
-##  "light": Vector3 (optional candle light offset), "energy": float, "shadows": bool}
-func _place_model(d: Dictionary) -> void:
-	var n: Node3D = null
-	if d.has("prop"):
-		match str(d["prop"]):
-			"candle_trio":
-				n = Decor.candle_trio(style)
-			"candle":
-				n = Decor.candle(style)
-	else:
-		n = Decor.model(str(d.get("set", "keep")), str(d["model"]), float(d.get("scale", 1.0)))
-	if n == null:
-		return
-	add_child(n)
-	n.position = d.get("pos", Vector3.ZERO)
-	n.rotation.y = float(d.get("rot", 0.0))
-	n.scale = Vector3.ONE * float(d.get("scale", 1.0)) if d.has("prop") else n.scale
-	if d.has("light") and not d.has("prop"):
-		Decor.attach_light(n, d["light"], style.get("lamp", Color(1, 0.75, 0.45)), float(d.get("energy", 1.2)) * float(style.get("lamp_energy", 2.0)) / 2.0, float(d.get("range", 4.0)), bool(d.get("shadows", false)))
 
 ## Furniture standing between the reader's eye and the shelf they opened turns see-through,
 ## so a chair, a plant or the reading table never hides the books. `amount` 0.0 is solid.
@@ -338,29 +248,17 @@ static func _set_transparency(n: Node, amount: float) -> void:
 	for c in n.get_children():
 		_set_transparency(c, amount)
 
-## Functional props present in every room: the reading table and the archive box.
-func _build_props() -> void:
-	var first := get_child_count()
-	table = Decor.reading_table(style)
-	add_child(table)
-	table.position = TABLE_POS
-	table.rotation.y = 0.12
-	archive = Decor.archive_box(style)
-	add_child(archive)
-	# the bed takes the south-west corner in a bedroom, so the box moves to the other side
-	var apos := ARCHIVE_POS if str(room.get("type", "living")) != "bedroom" else Vector3(2.4, 0, 2.5)
-	archive.position = apos
-	var dir := Vector3(0, 0, 0.3) - apos
-	archive.rotation.y = atan2(dir.x, dir.z)
-	_track_decor(first)
-	refresh_props()
-
 ## Rebuilds the stack on the table and the books in the archive box from the library's statuses.
+## A room only has these if the reader placed them, so each half stands on its own.
 func refresh_props() -> void:
-	if table == null or archive == null:
-		return
 	if not _fade_args.is_empty() and float(_fade_args[2]) > 0.0:
 		(func(): fade_for_view(_fade_args[0], _fade_args[1], _fade_args[2])).call_deferred()
+	_refresh_table()
+	_refresh_archive()
+
+func _refresh_table() -> void:
+	if table == null:
+		return
 	var stack: Node3D = table.get_node("Stack")
 	for c in stack.get_children():
 		c.queue_free()
@@ -378,6 +276,12 @@ func refresh_props() -> void:
 		b3.rotation = Vector3(0, rng.randf_range(-0.14, 0.14), PI / 2.0)
 		b3.position = Vector3(b3.dims.y / 2.0 + rng.randf_range(-0.02, 0.02), y + b3.dims.x / 2.0, rng.randf_range(-0.015, 0.015))
 		y += b3.dims.x
+
+func _refresh_archive() -> void:
+	if archive == null:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
 	var contents: Node3D = archive.get_node("Contents")
 	for c in contents.get_children():
 		c.queue_free()

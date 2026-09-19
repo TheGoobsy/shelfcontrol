@@ -120,9 +120,7 @@ func _ready() -> void:
 	BookAPI.cover_ready.connect(func(_id, _tex): hud.refresh_tray())
 
 	if demo:
-		DemoData.populate()
-		if shot_style != "":
-			Library.data["style"] = shot_style
+		DemoData.populate(shot_style if shot_style != "" else "cozy_cabin")
 	_apply_style()
 	_load_room(0)
 	hud.refresh_tray()
@@ -270,15 +268,10 @@ func _show_place_spot(animate: bool) -> void:
 		rig.go_to(_room_eye(), _room_basis(), ROOM_FOV, 0.35)
 	else:
 		rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
-	# Anything this spot would displace goes invisible, so the cost is on screen.
-	var dropped := room3d.preview_hide(wall, int(s["slot"]))
-	var warn := ""
-	if dropped == "window":
-		warn = tr("Placing here removes the window")
-	elif dropped == "fireplace":
-		warn = tr("Placing here removes the fireplace")
+	# A spot the window or the fireplace stands on is not offered at all, so a bookcase
+	# never costs the reader a piece of furniture they placed themselves.
 	hud.set_place_info(tr("%s wall · spot %d") % [tr(Styles.WALL_NAMES[wall]), int(s["slot"]) + 1],
-		tr("Spot %d of %d") % [place_index + 1, place_spots.size()], warn)
+		tr("Spot %d of %d") % [place_index + 1, place_spots.size()])
 
 func confirm_place_shelf() -> void:
 	if not placing_shelf or place_spots.is_empty():
@@ -302,8 +295,6 @@ func cancel_place_shelf() -> void:
 	if ghost_shelf != null:
 		ghost_shelf.queue_free()
 		ghost_shelf = null
-	if room3d != null:
-		room3d.preview_hide(-1, -1)
 	hud.set_placing_shelf(false)
 
 func _room_basis() -> Basis:
@@ -943,19 +934,16 @@ func _run_shot() -> void:
 		"cat":
 			rig.snap(Vector3(0.6, 1.0, -0.4), CameraRig.look_basis(Vector3(0.6, 1.0, -0.4), Vector3(-0.75, 0.1, 0.85)), 40.0)
 		"office", "bedroom", "fantasy":
-			Library.get_rooms()[0]["type"] = shot_mode
-			_on_structure_changed()
+			_furnish_shot_room(shot_mode)
 			yaw = 2.6 if shot_mode != "fantasy" else -2.5
 			pitch = -0.1
 			rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
 		"office2":
-			Library.get_rooms()[0]["type"] = "office"
-			_on_structure_changed()
+			_furnish_shot_room("office")
 			var eye := Vector3(0.2, 1.4, -0.2)
 			rig.snap(eye, CameraRig.look_basis(eye, Vector3(1.7, 0.8, 1.4)), 50.0)
 		"fantasy2":
-			Library.get_rooms()[0]["type"] = "fantasy"
-			_on_structure_changed()
+			_furnish_shot_room("fantasy")
 			var eye := Vector3(-0.3, 1.3, 1.2)
 			rig.snap(eye, CameraRig.look_basis(eye, Vector3(0.6, 0.9, -1.2)), 55.0)
 		"window":
@@ -999,10 +987,10 @@ func _run_shot() -> void:
 			rig.snap(eye, CameraRig.look_basis(eye, Vector3(1.75, 0.5, 1.25)), 45.0)
 		"table":
 			var eye := Vector3(1.1, 1.25, 1.35)
-			rig.snap(eye, CameraRig.look_basis(eye, Room3D.TABLE_POS + Vector3(0, 0.45, 0)), 42.0)
+			rig.snap(eye, CameraRig.look_basis(eye, _prop_aim("reading", 0.45)), 42.0)
 		"box":
 			var eye := Vector3(-0.7, 1.1, 0.9)
-			rig.snap(eye, CameraRig.look_basis(eye, Room3D.ARCHIVE_POS + Vector3(0, 0.15, 0)), 38.0)
+			rig.snap(eye, CameraRig.look_basis(eye, _prop_aim("archive", 0.15)), 38.0)
 		"reading":
 			hud.dialogs.open_reading_list()
 		"archive":
@@ -1081,6 +1069,19 @@ func _run_shot() -> void:
 	for i in 70:
 		await get_tree().process_frame
 	_save_shot()
+
+## Screenshot helper: where a functional prop actually stands, now that the reader places
+## it rather than the room putting it in a fixed corner.
+func _prop_aim(prop: String, lift: float) -> Vector3:
+	var n: Node3D = room3d.table if prop == "reading" else room3d.archive
+	return (n.position if n != null else Vector3.ZERO) + Vector3(0, lift, 0)
+
+## Screenshot helper: refurnishes the first room from one of the sets rooms used to be
+## typed with, keeping the table and box it already has.
+func _furnish_shot_room(legacy_type: String) -> void:
+	var room: Dictionary = Library.get_rooms()[0]
+	Library.set_furniture(str(room["id"]), Furniture.legacy_arrangement(legacy_type, room, style))
+	_on_structure_changed()
 
 func _save_shot() -> void:
 	var img := get_viewport().get_texture().get_image()

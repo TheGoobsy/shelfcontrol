@@ -3,7 +3,8 @@ extends Node
 ##
 ## data = {
 ##   version, style,
-##   rooms: [ { id, name, shelves: [ { id, name, wall, slot, rows: [[book_id, ...], ...] } ] } ],
+##   rooms: [ { id, name, furniture: [ { id, kind, x, z, rot } | { id, kind, wall, slot } ],
+##             shelves: [ { id, name, wall, slot, rows: [[book_id, ...], ...] } ] } ],
 ##   books: { id: { id, title, authors, isbn, isbn13, pages, year, rating, cover_url, cover_file,
 ##                  color, height, thickness, width, face_out, tags, source } },
 ##   tray: [book_id, ...]
@@ -70,11 +71,17 @@ func _migrate() -> void:
 	for k in _default_data().keys():
 		if not data.has(k):
 			data[k] = _default_data()[k]
+	var style := Styles.get_style(get_style_id())
 	for room in data["rooms"]:
 		if not room.has("shelves"):
 			room["shelves"] = []
-		if not room.has("type"):
-			room["type"] = "living"
+		# Rooms saved before the editor were furnished by their room type. Turn that
+		# arrangement into real furniture once, so it survives as something editable.
+		if not room.has("furniture"):
+			room["furniture"] = Furniture.seed_from_decor(Furniture.legacy_decor(room, style), room)
+			for e in Furniture.STARTER:
+				room["furniture"].append(Furniture.make(str(e["kind"]), float(e["x"]), float(e["z"]), float(e["rot"])))
+		room.erase("type")
 		for shelf in room["shelves"]:
 			if not shelf.has("rows"):
 				shelf["rows"] = []
@@ -159,22 +166,17 @@ func room_index(rid: String) -> int:
 			return i
 	return -1
 
-func add_room(room_name: String, emit := true, room_type := "living") -> String:
-	var r := {"id": _new_id("r"), "name": room_name, "shelves": [], "type": room_type, "doors": []}
+func add_room(room_name: String, emit := true) -> String:
+	var furniture: Array = []
+	for e in Furniture.STARTER:
+		furniture.append(Furniture.make(str(e["kind"]), float(e["x"]), float(e["z"]), float(e["rot"])))
+	var r := {"id": _new_id("r"), "name": room_name, "shelves": [], "furniture": furniture, "doors": []}
 	data["rooms"].append(r)
 	_assign_doors()
 	if emit:
 		structure_changed.emit()
 		save()
 	return r["id"]
-
-func set_room_type(rid: String, room_type: String) -> void:
-	var r := get_room(rid)
-	if r.is_empty():
-		return
-	r["type"] = room_type
-	structure_changed.emit()
-	save()
 
 func rename_room(rid: String, room_name: String) -> void:
 	var r := get_room(rid)
@@ -210,6 +212,76 @@ func room_book_count(rid: String) -> int:
 			n += row.size()
 	return n
 
+# ---------------------------------------------------------------- furniture
+
+func get_furniture(rid: String) -> Array:
+	var r := get_room(rid)
+	if r.is_empty():
+		return []
+	if not r.has("furniture"):
+		r["furniture"] = []
+	return r["furniture"]
+
+func find_furniture(rid: String, fid: String) -> Dictionary:
+	for e in get_furniture(rid):
+		if str(e.get("id", "")) == fid:
+			return e
+	return {}
+
+## True when the room already holds a kind that may only appear once (the reading table,
+## the archive box, the fireplace, the window).
+func has_furniture_kind(rid: String, kind: String) -> bool:
+	for e in get_furniture(rid):
+		if str(e.get("kind", "")) == kind:
+			return true
+	return false
+
+## Replaces a room's whole arrangement. Used by the demo library and the screenshot
+## harness, which need a furnished room without anyone tapping through the editor.
+func set_furniture(rid: String, entries: Array, emit := true) -> void:
+	var r := get_room(rid)
+	if r.is_empty():
+		return
+	r["furniture"] = entries
+	if emit:
+		structure_changed.emit()
+		save()
+
+func add_furniture(rid: String, entry: Dictionary) -> String:
+	var r := get_room(rid)
+	if r.is_empty():
+		return ""
+	get_furniture(rid).append(entry)
+	structure_changed.emit()
+	save()
+	return str(entry.get("id", ""))
+
+func move_furniture(rid: String, fid: String, x: float, z: float, rot: float) -> void:
+	var e := find_furniture(rid, fid)
+	if e.is_empty():
+		return
+	e["x"] = snappedf(x, 0.001)
+	e["z"] = snappedf(z, 0.001)
+	e["rot"] = snappedf(rot, 0.001)
+	structure_changed.emit()
+	save()
+
+func remove_furniture(rid: String, fid: String) -> void:
+	var list := get_furniture(rid)
+	for i in list.size():
+		if str(list[i].get("id", "")) == fid:
+			list.remove_at(i)
+			structure_changed.emit()
+			save()
+			return
+
+## The wall furniture standing on a slot, or {}.
+func wall_furniture_at(rid: String, wall: int, slot: int) -> Dictionary:
+	for e in get_furniture(rid):
+		if e.has("wall") and int(e["wall"]) == wall and int(e["slot"]) == slot:
+			return e
+	return {}
+
 # ---------------------------------------------------------------- shelves
 
 func get_shelf(sid: String) -> Dictionary:
@@ -226,6 +298,9 @@ func get_shelf_room(sid: String) -> Dictionary:
 				return r
 	return {}
 
+## A wall slot with nothing on it: no bookcase, no door and no wall furniture. The window
+## and the fireplace hold their slot rather than being pushed off it, so the ring of spots
+## the editor draws is the whole truth about what a wall has room for.
 func is_slot_free(rid: String, wall: int, slot: int) -> bool:
 	var r := get_room(rid)
 	for s in r.get("shelves", []):
@@ -233,6 +308,9 @@ func is_slot_free(rid: String, wall: int, slot: int) -> bool:
 			return false
 	for d in r.get("doors", []):
 		if int(d["wall"]) == wall and int(d["slot"]) == slot:
+			return false
+	for e in r.get("furniture", []):
+		if e.has("wall") and int(e["wall"]) == wall and int(e["slot"]) == slot:
 			return false
 	return true
 
@@ -255,20 +333,24 @@ func _assign_doors() -> void:
 func _pick_door_slot(room: Dictionary, wall: int) -> int:
 	var prefs: Array = Styles.DOOR_SLOT_PREFS[wall]
 	for slot in prefs:
-		if _shelf_at(room, wall, slot).is_empty() and _door_at(room, wall, slot).is_empty():
+		if _shelf_at(room, wall, slot).is_empty() and _door_at(room, wall, slot).is_empty() \
+				and _wall_furniture_at(room, wall, slot).is_empty():
 			return slot
-	# every candidate has a shelf: take the first and move that shelf somewhere free
+	# every candidate is taken: claim the first and move whatever stands there somewhere free
 	var slot: int = prefs[0]
-	var sh := _shelf_at(room, wall, slot)
-	if not sh.is_empty():
+	var sitting: Dictionary = _shelf_at(room, wall, slot)
+	if sitting.is_empty():
+		sitting = _wall_furniture_at(room, wall, slot)
+	if not sitting.is_empty():
 		for w in 4:
 			for sl in Styles.slot_count(w):
-				if (w == wall and sl == slot) or not _door_at(room, w, sl).is_empty() or not _shelf_at(room, w, sl).is_empty():
+				if (w == wall and sl == slot) or not _door_at(room, w, sl).is_empty() \
+						or not _shelf_at(room, w, sl).is_empty() or not _wall_furniture_at(room, w, sl).is_empty():
 					continue
 				if w == wall and prefs.has(sl):
 					continue
-				sh["wall"] = w
-				sh["slot"] = sl
+				sitting["wall"] = w
+				sitting["slot"] = sl
 				return slot
 	return slot
 
@@ -276,6 +358,12 @@ func _shelf_at(room: Dictionary, wall: int, slot: int) -> Dictionary:
 	for s in room.get("shelves", []):
 		if int(s["wall"]) == wall and int(s["slot"]) == slot:
 			return s
+	return {}
+
+func _wall_furniture_at(room: Dictionary, wall: int, slot: int) -> Dictionary:
+	for e in room.get("furniture", []):
+		if e.has("wall") and int(e["wall"]) == wall and int(e["slot"]) == slot:
+			return e
 	return {}
 
 func _door_at(room: Dictionary, wall: int, slot: int) -> Dictionary:

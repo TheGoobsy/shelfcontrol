@@ -64,17 +64,22 @@ const BOOKS := [
 	["Jonathan Strange & Mr Norrell", "Susanna Clarke", 782, 2004],
 ]
 
-static func populate() -> void:
+## `style_id` has to be known up front: a room's furniture is seeded from the style's own
+## arrangement, so setting the style afterwards would leave the cabin's armchair standing
+## in a castle.
+static func populate(style_id := "cozy_cabin") -> void:
 	Library.no_save = true
 	Library.data = Library._default_data()
-	Library.data["style"] = "cozy_cabin"
+	Library.data["style"] = style_id
 	var living := Library.add_room("Living Room", false)
+	_furnish(living, "living")
 	Library.add_shelf(living, 0, 1, false, "Fiction A")
 	Library.add_shelf(living, 0, 3, false, "Fiction B")
 	Library.add_shelf(living, 3, 1, false, "Non-fiction")
 	Library.add_shelf(living, 3, 2, false, "Favourites")
 	Library.add_shelf(living, 1, 0, false, "To read")
-	var study := Library.add_room("Study", false, "office")
+	var study := Library.add_room("Study", false)
+	_furnish(study, "office")
 	Library.add_shelf(study, 0, 2, false, "Reference")
 	Library.add_shelf(study, 2, 0, false, "Classics")
 	var rng := RandomNumberGenerator.new()
@@ -111,7 +116,8 @@ static func populate() -> void:
 		if not placed:
 			Library.auto_place(id, room["id"], true, true)
 	# a third room to show a chain turn: entered from the north, so its window moves to the west wall
-	var attic := Library.add_room("Attic", false, "bedroom")
+	var attic := Library.add_room("Attic", false)
+	_furnish(attic, "bedroom")
 	Library.add_shelf(attic, 1, 0, false, "Keepsakes")
 	# a couple of books in the tray
 	var t1 := Library.add_book({"title": "Exhalation", "authors": ["Ted Chiang"], "pages": 350, "year": "2019", "source": "demo"})
@@ -119,3 +125,9 @@ static func populate() -> void:
 	Library.to_tray(t1)
 	Library.to_tray(t2)
 	Library.structure_changed.emit()
+
+## The demo library wants rooms that already look lived in, so two of them are furnished
+## from the sets rooms used to be typed with, on top of the starter table and box.
+static func _furnish(rid: String, legacy_type: String) -> void:
+	var room := Library.get_room(rid)
+	Library.set_furniture(rid, Furniture.legacy_arrangement(legacy_type, room, Styles.get_style(Library.get_style_id())), false)
