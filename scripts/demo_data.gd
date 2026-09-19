@@ -69,6 +69,9 @@ const BOOKS := [
 ## in a castle.
 static func populate(style_id := "cozy_cabin") -> void:
 	Library.no_save = true
+	# a fixed prefix makes the furniture ids repeat, and with them every piece's look
+	Furniture.id_prefix = "demo"
+	Furniture._serial = 0
 	Library.data = Library._default_data()
 	Library.data["style"] = style_id
 	var living := Library.add_room("Living Room", false)

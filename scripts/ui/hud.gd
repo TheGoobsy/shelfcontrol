@@ -18,6 +18,11 @@ signal edit_pressed()
 signal edit_room_pressed()
 signal edit_view_pressed()
 signal edit_done_pressed()
+signal furniture_picked(kind: String)
+signal furniture_rotate_pressed()
+signal furniture_place_pressed()
+signal furniture_cancel_pressed()
+signal furniture_remove_pressed()
 signal place_prev_pressed()
 signal place_next_pressed()
 signal place_confirm_pressed()
@@ -62,6 +67,14 @@ var placing_shelf := false
 var editing := false
 var edit_panel: PanelContainer
 var edit_view_btn: Button
+var edit_browse: VBoxContainer     # categories + the pieces in one
+var edit_place_row: HBoxContainer  # rotate / place / cancel, while one is in hand
+var edit_hint: Label
+var edit_cat_box: HBoxContainer
+var edit_item_box: HBoxContainer
+var edit_place_btn: Button
+var edit_remove_btn: Button
+var edit_cat := "functional"
 var place_panel: PanelContainer
 var place_where: Label
 var place_count: Label
@@ -600,19 +613,95 @@ func _build_edit_bar() -> void:
 	edit_panel.visible = false
 	root.add_child(edit_panel)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 10)
 	edit_panel.add_child(v)
+
+	edit_hint = Label.new()
+	edit_hint.theme_type_variation = "SmallLabel"
+	edit_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	edit_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(edit_hint)
+
+	# the inventory: a row of categories over the pieces in the one that is open
+	edit_browse = VBoxContainer.new()
+	edit_browse.add_theme_constant_override("separation", 8)
+	v.add_child(edit_browse)
+	edit_cat_box = _scroller(edit_browse, 74)
+	edit_item_box = _scroller(edit_browse, 128)
+
+	# what replaces the inventory once a piece is in hand
+	edit_place_row = HBoxContainer.new()
+	edit_place_row.add_theme_constant_override("separation", 12)
+	edit_place_row.visible = false
+	v.add_child(edit_place_row)
+	var rot := _icon_button("res://icons/refresh.svg", 40)
+	rot.custom_minimum_size = Vector2(104, 92)
+	rot.tooltip_text = tr("Turn")
+	rot.pressed.connect(func(): furniture_rotate_pressed.emit())
+	edit_place_row.add_child(rot)
+	edit_place_btn = button(tr("Place"), "AccentButton", 92)
+	edit_place_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	edit_place_btn.pressed.connect(func(): furniture_place_pressed.emit())
+	edit_place_row.add_child(edit_place_btn)
+	edit_remove_btn = _icon_button("res://icons/trash.svg", 40)
+	edit_remove_btn.custom_minimum_size = Vector2(104, 92)
+	edit_remove_btn.tooltip_text = tr("Remove")
+	edit_remove_btn.pressed.connect(func(): furniture_remove_pressed.emit())
+	edit_place_row.add_child(edit_remove_btn)
+	var cancel := _icon_button("res://icons/close.svg", 38)
+	cancel.custom_minimum_size = Vector2(104, 92)
+	cancel.tooltip_text = tr("Cancel")
+	cancel.pressed.connect(func(): furniture_cancel_pressed.emit())
+	edit_place_row.add_child(cancel)
+
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 14)
 	v.add_child(h)
-	edit_view_btn = button(tr("Room view"), "GhostButton", 92)
+	edit_view_btn = button(tr("Room view"), "GhostButton", 88)
 	edit_view_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	edit_view_btn.pressed.connect(func(): edit_view_pressed.emit())
 	h.add_child(edit_view_btn)
-	var done := button(tr("Done"), "AccentButton", 92)
+	var done := button(tr("Done"), "AccentButton", 88)
 	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	done.pressed.connect(func(): edit_done_pressed.emit())
 	h.add_child(done)
+	_rebuild_inventory()
+
+## A row that scrolls sideways when it holds more than fits.
+func _scroller(parent: Control, height: float) -> HBoxContainer:
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.custom_minimum_size = Vector2(0, height)
+	parent.add_child(sc)
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	sc.add_child(box)
+	return box
+
+## The categories, and the pieces in whichever one is open.
+func _rebuild_inventory() -> void:
+	for c in edit_cat_box.get_children():
+		edit_cat_box.remove_child(c)
+		c.queue_free()
+	for c in edit_item_box.get_children():
+		edit_item_box.remove_child(c)
+		c.queue_free()
+	for entry in Furniture.CATEGORIES:
+		var cat := str(entry[0])
+		var b := button(tr(str(entry[1])), "AccentButton" if cat == edit_cat else "GhostButton", 62)
+		b.custom_minimum_size.x = 0
+		b.pressed.connect(func():
+			edit_cat = cat
+			_rebuild_inventory())
+		edit_cat_box.add_child(b)
+	for kind in Furniture.in_category(edit_cat):
+		var b := button(tr(Furniture.display_name(kind)), "Tile", 116)
+		b.custom_minimum_size = Vector2(190, 116)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.clip_text = true
+		b.pressed.connect(func(): furniture_picked.emit(kind))
+		edit_item_box.add_child(b)
 
 ## Turns the furnishing interface on. The title bar keeps naming the room, so the reader
 ## can still see which one they are arranging.
@@ -625,6 +714,21 @@ func set_editing(on: bool, room_name := "", subtitle := "", top_view := true) ->
 		edit_view_btn.text = tr("Room view") if top_view else tr("Plan view")
 	_rebuild_actions()
 	refresh_tray()
+
+## Swaps the inventory for the rotate / place / remove row while a piece is in hand.
+## `held` is "" when nothing is, `can_place` drives whether Place is offered at all, and
+## `can_remove` is on for a piece already standing in the room rather than a new one.
+func set_holding(held: String, can_place := true, can_remove := false, hint := "") -> void:
+	var busy := held != ""
+	edit_browse.visible = not busy
+	edit_place_row.visible = busy
+	edit_remove_btn.visible = can_remove
+	edit_place_btn.disabled = not can_place
+	edit_place_btn.text = tr("Place") if not can_remove else tr("Move here")
+	edit_hint.text = hint
+	edit_hint.visible = hint != ""
+	edit_hint.add_theme_color_override("font_color", accent() if busy and not can_place else muted())
+	_layout()
 
 func set_placing_shelf(on: bool) -> void:
 	placing_shelf = on

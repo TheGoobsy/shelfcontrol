@@ -167,6 +167,16 @@ static func footprint(node: Node3D, kind: String) -> Rect2:
 		return Rect2()
 	return Rect2(box.position.x, box.position.z, box.size.x, box.size.z)
 
+## The measured box whatever the kind, used for picking a piece up: a rug blocks nothing
+## but still has to be tappable.
+static func raw_footprint(node: Node3D) -> Rect2:
+	if node == null:
+		return Rect2()
+	var box := Decor.model_aabb(node)
+	if box.size.x <= 0.0 and box.size.z <= 0.0:
+		return Rect2()
+	return Rect2(box.position.x, box.position.z, box.size.x, box.size.z)
+
 ## A footprint turned by `rot` and moved to (x, z), as the axis-aligned box that contains it.
 ## Furniture keeps its own angle, but the editor reserves the containing box, which is the
 ## honest thing to test against when two pieces are turned differently.
@@ -189,8 +199,18 @@ static func make(kind: String, x: float, z: float, rot := 0.0) -> Dictionary:
 static func make_wall(kind: String, wall: int, slot: int) -> Dictionary:
 	return {"id": _new_id(), "kind": kind, "wall": wall, "slot": slot}
 
+## Ids are a run prefix plus a serial rather than a roll of the dice, because a piece's
+## look is derived from its id: which of the three potted plants you get, how a side table
+## is proportioned. The demo library sets the prefix to a fixed word, so a screenshot taken
+## twice shows the same room and a change to the code is the only thing that can move it.
+static var id_prefix := ""
+static var _serial := 0
+
 static func _new_id() -> String:
-	return "f_%d_%04x" % [int(Time.get_unix_time_from_system() * 1000.0) % 1000000000, randi() % 65536]
+	if id_prefix == "":
+		id_prefix = "%x" % (int(Time.get_unix_time_from_system()) & 0xffffff)
+	_serial += 1
+	return "f_%s_%03x" % [id_prefix, _serial]
 
 # ---------------------------------------------------------------- seeding an old room
 

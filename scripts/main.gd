@@ -47,6 +47,25 @@ var _last_tap_pos := Vector2.ZERO
 var edit_overlay: EditOverlay
 var edit_top := true
 
+## The piece currently in hand, whether it came out of the inventory or was picked up off
+## the floor. `held_id` is empty for a new piece and names the entry for one being moved.
+var held_kind := ""
+var held_id := ""
+var held_node: Node3D
+var held_local := Rect2()   # the piece's own footprint, before it is moved anywhere
+var held_pos := Vector2.ZERO
+var held_rot := 0.0
+var held_wall := -1
+var held_slot := -1
+var held_fits := false
+
+## Furniture is dropped on a grid and turned in eighths, which keeps a room looking
+## arranged rather than scattered and makes a piece easy to line up with its neighbour.
+const SNAP_POS := 0.125
+const SNAP_ROT := PI / 4.0
+## How close to a wall a wall-hung piece has to be dragged before it takes a slot.
+const WALL_GRAB := 1.2
+
 ## Straight down on the room. The room is half again as wide as it is deep and a phone is
 ## the other way round, so the plan is turned a quarter turn: the long walls run down the
 ## screen and the room fills the width. West ends up at the top, north on the right.
@@ -109,6 +128,11 @@ func _ready() -> void:
 	hud.edit_room_pressed.connect(enter_edit)
 	hud.edit_view_pressed.connect(toggle_edit_view)
 	hud.edit_done_pressed.connect(exit_edit)
+	hud.furniture_picked.connect(take_furniture)
+	hud.furniture_rotate_pressed.connect(turn_held)
+	hud.furniture_place_pressed.connect(drop_held)
+	hud.furniture_cancel_pressed.connect(func(): release_held(true))
+	hud.furniture_remove_pressed.connect(remove_held)
 	hud.place_prev_pressed.connect(func(): place_step(-1))
 	hud.place_next_pressed.connect(func(): place_step(1))
 	hud.place_confirm_pressed.connect(confirm_place_shelf)
@@ -256,10 +280,12 @@ func enter_edit() -> void:
 	refresh_overlay()
 	_update_edit_camera(false)
 	_update_edit_hud()
+	hud.set_holding("", true, false, tr("Tap a piece to move it, or pick one from below"))
 
 func exit_edit() -> void:
 	if mode != Mode.EDIT:
 		return
+	release_held(true)
 	mode = Mode.ROOM
 	if edit_overlay != null:
 		edit_overlay.queue_free()
@@ -314,6 +340,245 @@ func _update_edit_hud() -> void:
 	var sub := tr("Plan view") if edit_top else tr("Room view")
 	sub += " · " + (tr("1 piece") if n == 1 else tr("%d pieces") % n)
 	hud.set_editing(true, str(room.get("name", "Room")), sub, edit_top)
+
+# ---------------------------------------------------------------- a piece in hand
+
+## Takes a new piece out of the inventory. It appears in the middle of the room, and the
+## reader drags it where they want it.
+func take_furniture(kind: String) -> void:
+	if mode != Mode.EDIT or not Furniture.has_kind(kind):
+		return
+	release_held(true)
+	if bool(Furniture.spec(kind).get("unique", false)) and Library.has_furniture_kind(current_room_id(), kind):
+		hud.toast(tr("This room already has a %s.") % tr(Furniture.display_name(kind)).to_lower())
+		return
+	held_kind = kind
+	held_id = ""
+	held_rot = 0.0
+	held_pos = Vector2(0.0, 0.6)
+	if not _build_held():
+		return
+	if Furniture.anchor(kind) == Furniture.WALL and not _snap_to_wall(held_pos):
+		hud.toast(tr("Every wall spot is taken. Free one first."))
+		release_held(true)
+		return
+	_update_held()
+
+## Picks a piece already standing in the room back up, to move, turn or remove it.
+func lift_furniture(fid: String) -> void:
+	var e := Library.find_furniture(current_room_id(), fid)
+	if e.is_empty():
+		return
+	release_held(true)
+	held_kind = str(e.get("kind", ""))
+	held_id = fid
+	held_rot = float(e.get("rot", 0.0))
+	held_wall = int(e.get("wall", -1))
+	held_slot = int(e.get("slot", -1))
+	if held_wall >= 0:
+		var t := Styles.shelf_transform(held_wall, held_slot)
+		held_pos = Vector2(t.origin.x, t.origin.z)
+	else:
+		held_pos = Vector2(float(e.get("x", 0.0)), float(e.get("z", 0.0)))
+	# the piece in hand is drawn by the ghost, so the one on the floor steps aside
+	var placed := room3d.furniture_node(fid)
+	if placed != null:
+		placed.visible = false
+	if not _build_held():
+		return
+	_update_held()
+
+## Builds the see-through copy that follows the reader's finger. False if the kind has
+## nothing to build (a model that failed to load).
+func _build_held() -> bool:
+	held_node = Furniture.build({"id": held_id if held_id != "" else held_kind, "kind": held_kind}, style)
+	if held_node == null:
+		held_kind = ""
+		return false
+	room3d.add_child(held_node)
+	held_local = Furniture.footprint(held_node, held_kind)
+	return true
+
+func turn_held() -> void:
+	if held_kind == "":
+		return
+	if Furniture.anchor(held_kind) == Furniture.WALL:
+		# a wall piece faces the room it hangs in; turning it would face it into the wall
+		hud.toast(tr("A wall piece takes the angle of its wall."))
+		return
+	held_rot = fposmod(held_rot + SNAP_ROT, TAU)
+	_update_held()
+
+## Drags the piece to wherever the finger is on the floor.
+func move_held_to(screen_pos: Vector2) -> void:
+	if held_kind == "":
+		return
+	var hit: Variant = _floor_point(screen_pos)
+	if hit == null:
+		return
+	var p: Vector2 = hit
+	if Furniture.anchor(held_kind) == Furniture.WALL:
+		_snap_to_wall(p)
+	else:
+		held_pos = Vector2(snappedf(p.x, SNAP_POS), snappedf(p.y, SNAP_POS))
+	_update_held()
+
+## Where a point on the screen lands on the floor, or null when the ray misses it.
+func _floor_point(screen_pos: Vector2):
+	var from := rig.cam.project_ray_origin(screen_pos)
+	var dir := rig.cam.project_ray_normal(screen_pos)
+	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(from, dir)
+	if hit == null:
+		return null
+	var at: Vector3 = hit
+	return Vector2(at.x, at.z)
+
+## Puts a wall piece on the free wall spot nearest the point being dragged to. False if
+## the room has no free spot at all.
+func _snap_to_wall(p: Vector2) -> bool:
+	var rid := current_room_id()
+	var best := INF
+	var found := false
+	for wall in 4:
+		for slot in Styles.slot_count(wall):
+			if not Library.is_slot_free(rid, wall, slot) and not (wall == held_wall and slot == held_slot):
+				continue
+			var t := Styles.shelf_transform(wall, slot)
+			var d := p.distance_to(Vector2(t.origin.x, t.origin.z))
+			if d < best:
+				best = d
+				held_wall = wall
+				held_slot = slot
+				held_pos = Vector2(t.origin.x, t.origin.z)
+				held_rot = t.basis.get_euler().y
+				found = true
+	return found
+
+## Moves the see-through copy, works out whether it fits and tells the map and the bar.
+func _update_held() -> void:
+	if held_node == null:
+		return
+	var anchor := Furniture.anchor(held_kind)
+	var rect := Rect2()
+	if anchor == Furniture.WALL:
+		var sp := Furniture.spec(held_kind)
+		var t := Styles.wall_transform(held_wall, Styles.slot_offset(held_wall, held_slot), float(sp.get("depth", 0.2)))
+		held_node.transform = t
+		held_node.position.y = float(sp.get("y", 0.0))
+		rect = Furniture.world_rect(held_local, t.origin.x, t.origin.z, t.basis.get_euler().y)
+		# the wall ring already says whether the spot is free, and _snap_to_wall only
+		# ever offers a free one, so a wall piece always fits where it has landed
+		held_fits = held_wall >= 0
+	else:
+		var y := Styles.ROOM_H if anchor == Furniture.CEILING else 0.0
+		held_node.position = Vector3(held_pos.x, float(Furniture.spec(held_kind).get("y", y)), held_pos.y)
+		held_node.rotation.y = held_rot
+		rect = Furniture.world_rect(held_local, held_pos.x, held_pos.y, held_rot)
+		held_fits = _fits(rect) if anchor != Furniture.CEILING else _inside_room(rect_or_point(rect))
+	Room3D.set_ghost_tint(held_node, EditOverlay.GHOST_OK if held_fits else EditOverlay.GHOST_BAD)
+	if edit_overlay != null:
+		edit_overlay.show_ghost(rect, held_fits)
+	var hint := ""
+	if not held_fits:
+		hint = tr("Does not fit here")
+	elif held_id == "":
+		hint = tr("Drag it where you want it, then place it")
+	hud.set_holding(held_kind, held_fits, held_id != "", hint)
+
+## A hanging lamp has no floor box, so it is judged by the point it hangs over.
+func rect_or_point(r: Rect2) -> Rect2:
+	if r.size != Vector2.ZERO:
+		return r
+	return Rect2(held_pos - Vector2(0.1, 0.1), Vector2(0.2, 0.2))
+
+## How far two pieces may overlap before the editor calls it a clash. A piece is measured
+## by the axis-aligned box around it, which for anything standing at an angle is larger
+## than the piece itself, and real furniture tucks together anyway: a side table belongs
+## beside the armchair, not a hand's width off it.
+const TOUCH := 0.08
+
+## Inside the walls, and clear of everything already standing in the room.
+func _fits(r: Rect2) -> bool:
+	if not _inside_room(rect_or_point(r)):
+		return false
+	if r.size == Vector2.ZERO:
+		return true
+	var mine := _snug(r)
+	for b in blocked_rects(held_id):
+		if _snug(b).intersects(mine):
+			return false
+	return true
+
+## A box pulled in by the touching allowance, without ever turning inside out.
+static func _snug(r: Rect2) -> Rect2:
+	var d := minf(TOUCH, minf(r.size.x, r.size.y) / 2.0 - 0.001)
+	return r.grow(-maxf(d, 0.0))
+
+func _inside_room(r: Rect2) -> bool:
+	var room := Rect2(-Styles.ROOM_W / 2.0, -Styles.ROOM_D / 2.0, Styles.ROOM_W, Styles.ROOM_D)
+	# a hearth built into the wall pokes a little past it, so the walls are as forgiving
+	# as the furniture is with its neighbours
+	return room.grow(TOUCH).encloses(r)
+
+## Commits the piece where it stands.
+func drop_held() -> void:
+	if held_kind == "" or not held_fits:
+		return
+	var rid := current_room_id()
+	var kind := held_kind
+	var entry: Dictionary
+	if Furniture.anchor(kind) == Furniture.WALL:
+		entry = Furniture.make_wall(kind, held_wall, held_slot)
+	else:
+		entry = Furniture.make(kind, held_pos.x, held_pos.y, held_rot)
+	if held_id == "":
+		release_held(false)
+		Library.add_furniture(rid, entry)
+		hud.toast(tr("%s placed") % tr(Furniture.display_name(kind)))
+	else:
+		var fid := held_id
+		release_held(false)
+		var e := Library.find_furniture(rid, fid)
+		if Furniture.anchor(kind) == Furniture.WALL:
+			e["wall"] = held_wall
+			e["slot"] = held_slot
+			Library.set_furniture(rid, Library.get_furniture(rid))
+		else:
+			e.erase("wall")
+			e.erase("slot")
+			Library.move_furniture(rid, fid, entry["x"], entry["z"], entry["rot"])
+
+## Takes the piece in hand out of the room for good. Only a piece that was already
+## standing there can be removed; a new one is simply dropped.
+func remove_held() -> void:
+	if held_kind == "" or held_id == "":
+		return
+	var rid := current_room_id()
+	var fid := held_id
+	var what := tr(Furniture.display_name(held_kind))
+	release_held(false)
+	Library.remove_furniture(rid, fid)
+	hud.toast(tr("%s removed") % what)
+
+## Puts the piece down again. `restore` brings back the one that was lifted off the floor,
+## which a cancel wants and a commit does not, since the room is about to be rebuilt.
+func release_held(restore: bool) -> void:
+	if held_node != null:
+		held_node.queue_free()
+		held_node = null
+	if restore and held_id != "" and room3d != null:
+		var placed := room3d.furniture_node(held_id)
+		if placed != null:
+			placed.visible = true
+	held_kind = ""
+	held_id = ""
+	held_wall = -1
+	held_slot = -1
+	held_fits = false
+	if edit_overlay != null:
+		edit_overlay.hide_ghost()
+	if mode == Mode.EDIT:
+		hud.set_holding("")
 
 # ---------------------------------------------------------------- placing a shelf
 
@@ -434,8 +699,12 @@ func _on_structure_changed() -> void:
 	var was_editing := mode == Mode.EDIT
 	room_index = clamp(room_index, 0, max(0, Library.room_count() - 1))
 	room3d.build(current_room(), style)
-	# the overlay lives under the room node, so the rebuild took it with it
+	# the overlay and any piece in hand live under the room node, so the rebuild took
+	# them with it
 	edit_overlay = null
+	held_node = null
+	if held_kind != "":
+		release_held(false)
 	if was_editing:
 		enter_edit()
 	elif was_shelf and room3d.shelves.has(keep_shelf):
@@ -667,14 +936,21 @@ func _on_motion(pos: Vector2) -> void:
 			_begin_book_drag()
 		else:
 			camera_dragging = true
+	if mode == Mode.EDIT and held_kind != "":
+		move_held_to(pos)
+		last_pos = pos
+		return
 	if drag_book:
 		_update_book_drag(pos)
 	elif camera_dragging:
 		var rel := pos - last_pos
 		var sens: float = 0.0021 * float(Settings.get_value("look_sensitivity"))
 		if mode == Mode.EDIT:
-			# the plan is a fixed map; only the room view turns
-			if not edit_top:
+			# a piece in hand follows the finger; otherwise only the room view turns,
+			# since the plan is a fixed map
+			if held_kind != "":
+				move_held_to(pos)
+			elif not edit_top:
 				var sx := -1.0 if Settings.get_value("invert_look_x") else 1.0
 				var sy := -1.0 if Settings.get_value("invert_look_y") else 1.0
 				yaw -= rel.x * sens * sx
@@ -707,6 +983,15 @@ func _on_tap(pos: Vector2) -> void:
 	if rig.moving:
 		return
 	if mode == Mode.EDIT:
+		var p: Variant = _floor_point(pos)
+		if p == null:
+			return
+		if held_kind != "":
+			move_held_to(pos)
+			return
+		var fid := room3d.furniture_at(p)
+		if fid != "":
+			lift_furniture(fid)
 		return
 	if mode == Mode.ROOM:
 		# While choosing a spot, taps must not open a shelf or walk through a door.
@@ -1107,6 +1392,21 @@ func _run_shot() -> void:
 		"edit_room":
 			enter_edit()
 			toggle_edit_view()
+		"furnish_ok":
+			enter_edit()
+			_shot_hold("armchair", Vector2(-1.6, -1.9))
+		"furnish_bad":
+			enter_edit()
+			_shot_hold("bed", Vector2(0.4, 0.3))
+		"furnish_wall":
+			enter_edit()
+			_shot_hold("shield", Vector2(2.0, 2.9))
+		"furnish_lift":
+			enter_edit()
+			for f in room3d.furniture_rects():
+				if str(f["kind"]) == "armchair":
+					lift_furniture(str(f["id"]))
+					break
 		"reading":
 			hud.dialogs.open_reading_list()
 		"archive":
@@ -1185,6 +1485,17 @@ func _run_shot() -> void:
 	for i in 70:
 		await get_tree().process_frame
 	_save_shot()
+
+## Screenshot helper: takes a piece out of the inventory and drags it to a spot.
+func _shot_hold(kind: String, at: Vector2) -> void:
+	take_furniture(kind)
+	if held_kind == "":
+		return
+	if Furniture.anchor(kind) == Furniture.WALL:
+		_snap_to_wall(at)
+	else:
+		held_pos = at
+	_update_held()
 
 ## Screenshot helper: where a functional prop actually stands, now that the reader places
 ## it rather than the room putting it in a fixed corner.

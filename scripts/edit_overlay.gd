@@ -17,12 +17,16 @@ const RING_LIFT := 0.02     # the wall ring sits over the tiles
 
 const FREE := Color(0.26, 0.88, 0.44, 0.34)
 const BLOCKED := Color(0.95, 0.20, 0.18, 0.46)
+const GHOST_OK := Color(0.30, 1.0, 0.50, 0.42)
+const GHOST_BAD := Color(1.0, 0.22, 0.20, 0.50)
+const GHOST_LIFT := 0.03    # over both the tiles and the wall ring
 const SLOT_FREE := Color(0.45, 0.95, 0.60, 0.75)
 const SLOT_TAKEN := Color(1.0, 0.32, 0.28, 0.85)
 const OUTLINE := 0.035      # thickness of a wall-spot outline
 
 var _grid: MeshInstance3D
 var _ring: MeshInstance3D
+var _ghost: MeshInstance3D
 
 static var _mat: StandardMaterial3D
 
@@ -41,6 +45,7 @@ static func overlay_material() -> StandardMaterial3D:
 func _ready() -> void:
 	_grid = _surface()
 	_ring = _surface()
+	_ghost = _surface()
 
 func _surface() -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -53,6 +58,23 @@ func _surface() -> MeshInstance3D:
 func refresh(room: Dictionary, blocked: Array) -> void:
 	_grid.mesh = _build_grid(blocked)
 	_ring.mesh = _build_ring(room)
+
+## The box of the piece currently in hand: green where it would go, red where it would
+## not. Filled as well as outlined, so a piece that does not fit reads as a red slab
+## rather than a thin line the furniture itself hides.
+func show_ghost(r: Rect2, ok: bool) -> void:
+	if r.size == Vector2.ZERO:
+		_ghost.mesh = null
+		return
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var col := GHOST_OK if ok else GHOST_BAD
+	_quad(st, r, GHOST_LIFT, Color(col.r, col.g, col.b, col.a * 0.55))
+	_outline(st, r, GHOST_LIFT + 0.002, Color(col.r, col.g, col.b, 0.95))
+	_ghost.mesh = st.commit()
+
+func hide_ghost() -> void:
+	_ghost.mesh = null
 
 ## One quad per tile, green or red depending on whether anything stands on it. A tile
 ## counts as taken as soon as a box touches it, so the red area is never smaller than

@@ -12,6 +12,8 @@ keys,en,de
 %d pieces,%d pieces,%d Möbelstücke
 %d results · tap Add,%d results · tap Add,%d Treffer · tippe Hinzufügen
 %d shelves,%d shelves,%d Regale
+%s placed,%s placed,%s hingestellt
+%s removed,%s removed,%s entfernt
 %s wall · spot %d,%s wall · spot %d,%s-Wand · Platz %d
 %s wall → %s,%s wall → %s,%s-Wand → %s
 %s wall,%s wall,%s-Wand
@@ -22,6 +24,7 @@ keys,en,de
 1 result · tap Add,1 result · tap Add,1 Treffer · tippe Hinzufügen
 1 shelf,1 shelf,1 Regal
 A small plate on the front of the case carrying this shelf's name.,A small plate on the front of the case carrying this shelf's name.,Ein kleines Schild vorne am Regal mit dem Namen dieses Regals.
+A wall piece takes the angle of its wall.,A wall piece takes the angle of its wall.,Ein Wandstück richtet sich nach seiner Wand.
 Add a book,Add a book,Buch hinzufügen
 Add a shelf,Add a shelf,Regal hinzufügen
 Add shelf,Add shelf,Neues Regal
@@ -47,6 +50,7 @@ Average %.1f,Average %.1f,Durchschnitt %.1f
 Back on %s,Back on %s,Zurück auf %s
 Back to room,Back to room,Zurück zum Raum
 "Bed with pillows, nightstand lamp, rug and a sleeping cat.","Bed with pillows, nightstand lamp, rug and a sleeping cat.","Bett mit Kissen, Nachttischlampe, Teppich und eine schlafende Katze."
+Bed,Bed,Bett
 Bedroom,Bedroom,Schlafzimmer
 Book not found,Book not found,Buch nicht gefunden
 Book,Book,Buch
@@ -54,15 +58,22 @@ Books,Books,Bücher
 Brass,Brass,Messing
 Camera,Camera,Kamera
 Cancel,Cancel,Abbrechen
+Candelabra,Candelabra,Kandelaber
 "Candelabras, a lectern with an open tome, a crystal ball and a candle chandelier.","Candelabras, a lectern with an open tome, a crystal ball and a candle chandelier.","Kandelaber, ein Lesepult mit aufgeschlagenem Folianten, eine Kristallkugel und ein Kerzenleuchter."
+Candle chandelier,Candle chandelier,Kerzenleuchter
+Candle,Candle,Kerze
+Cat,Cat,Katze
 Choose CSV file,Choose CSV file,CSV-Datei wählen
 Could not read any books from that file. Is it a Goodreads export?,Could not read any books from that file. Is it a Goodreads export?,Aus dieser Datei konnten keine Bücher gelesen werden. Ist es ein Goodreads-Export?
 Cover out,Cover out,Cover nach vorne
 Covers out,Covers out,Cover nach vorne
 Cozy Cabin,Cozy Cabin,Gemütliche Hütte
+Crate,Crate,Holzkiste
+Crystal ball,Crystal ball,Kristallkugel
 Dark Academia,Dark Academia,Dark Academia
 "Dark sky outside, moonlight, lamps and fire carry the room.","Dark sky outside, moonlight, lamps and fire carry the room.","Dunkler Himmel draußen, Mondlicht, Lampen und Feuer tragen den Raum."
 Data,Data,Daten
+Decor,Decor,Deko
 Delete all books and rooms,Delete all books and rooms,Alle Bücher und Räume löschen
 Delete all,Delete all,Alles löschen
 Delete everything?,Delete everything?,Alles löschen?
@@ -73,9 +84,11 @@ Delete “%s”?,Delete “%s”?,„%s“ löschen?
 Details updated from the catalogue,Details updated from the catalogue,Details aus dem Katalog aktualisiert
 Details,Details,Details
 Deutsch,Deutsch,Deutsch
+Does not fit here,Does not fit here,Passt hier nicht
 Done,Done,Fertig
 Done. Covers fetched for your new books.,Done. Covers fetched for your new books.,Fertig. Cover für deine neuen Bücher geladen.
 Doors: ,Doors: ,Türen: 
+"Drag it where you want it, then place it","Drag it where you want it, then place it",Zieh es an seinen Platz und stell es hin
 Drop here to move the book to the tray,Drop here to move the book to the tray,"Hier loslassen, um das Buch in die Ablage zu legen"
 e.g. Study,e.g. Study,z. B. Arbeitszimmer
 East,East,Ost
@@ -86,18 +99,27 @@ Empty this shelf?,Empty this shelf?,Dieses Regal leeren?
 Empty to tray,Empty to tray,In die Ablage
 English,English,English
 Enter by hand,Enter by hand,Manuell eingeben
+Every wall spot is taken. Free one first.,Every wall spot is taken. Free one first.,Alle Wandplätze sind belegt. Mach zuerst einen frei.
 "Exposed brick, concrete floor and light oak.","Exposed brick, concrete floor and light oak.","Sichtziegel, Betonboden und helle Eiche."
+Fern,Fern,Farn
 Fetch cover,Fetch cover,Cover laden
 Fetch missing covers,Fetch missing covers,Fehlende Cover laden
 Fetching covers… %d / %d,Fetching covers… %d / %d,Cover werden geladen… %d / %d
 "Filter by title, author, genre, tag…","Filter by title, author, genre, tag…","Nach Titel, Autor, Genre, Tag filtern…"
 Finished reading,Finished reading,Fertig gelesen
+Fireplace,Fireplace,Kamin
+Floor lamp,Floor lamp,Stehlampe
+Functional,Functional,Funktional
 Furnish,Furnish,Einrichten
 Furniture,Furniture,Einrichtung
 Genre,Genre,Genre
 Genres & tags,Genres & tags,Genres & Tags
 "Genres, comma separated","Genres, comma separated","Genres, durch Komma getrennt"
+Globe,Globe,Globus
 Google Books API key (optional),Google Books API key (optional),Google-Books-API-Schlüssel (optional)
+Gothic chair,Gothic chair,Gotischer Stuhl
+Gothic statue,Gothic statue,Gotische Statue
+Gothic table,Gothic table,Gotischer Tisch
 "Green wallpaper, walnut panelling, candlelight.","Green wallpaper, walnut panelling, candlelight.","Grüne Tapete, Nussbaumvertäfelung, Kerzenlicht."
 Hidden,Hidden,Versteckt
 Import from Goodreads,Import from Goodreads,Aus Goodreads importieren
@@ -112,10 +134,15 @@ Invert shelf panning,Invert shelf panning,Regal-Schwenk umkehren
 Invert vertical look,Invert vertical look,Vertikal umkehren
 Its %d books move to the tray.,Its %d books move to the tray.,Seine %d Bücher wandern in die Ablage.
 Its shelves are removed and all %d books move to the tray.,Its shelves are removed and all %d books move to the tray.,Seine Regale werden entfernt und alle %d Bücher wandern in die Ablage.
+Kite shield,Kite shield,Schild
 Language,Language,Sprache
+Lantern chandelier,Lantern chandelier,Laternenleuchter
+Leafy plant,Leafy plant,Blattpflanze
+Lectern,Lectern,Lesepult
 Library %d,Library %d,Bibliothek %d
 Library reset,Library reset,Bibliothek zurückgesetzt
 Library style,Library style,Stil der Bibliothek
+Lighting,Lighting,Licht
 Living Room,Living Room,Wohnzimmer
 "Log walls, a crackling fire and warm wood.","Log walls, a crackling fire and warm wood.","Blockwände, ein knisterndes Feuer und warmes Holz."
 Look sensitivity  %d%%,Look sensitivity  %d%%,Empfindlichkeit  %d%%
@@ -125,6 +152,7 @@ Marked as read,Marked as read,Als gelesen markiert
 Material,Material,Material
 Medieval Keep,Medieval Keep,Mittelalterliche Burg
 Modern Loft,Modern Loft,Modernes Loft
+Move here,Move here,Hierher
 Move to…,Move to…,Verschieben…
 Move “%s”,Move “%s”,„%s“ verschieben
 Moved to %s,Moved to %s,Verschoben nach %s
@@ -137,6 +165,7 @@ New room,New room,Neuer Raum
 Newest,Newest,Neueste
 Next spot,Next spot,Nächster Platz
 Night mode,Night mode,Nachtmodus
+Nightstand,Nightstand,Nachttisch
 No results. Check the spelling or your connection.,No results. Check the spelling or your connection.,Keine Treffer. Prüfe die Schreibweise oder deine Verbindung.
 No shelves yet · tap the pencil to add one,No shelves yet · tap the pencil to add one,"Noch keine Regale · tippe den Stift, um eines hinzuzufügen"
 No status,No status,Kein Status
@@ -161,12 +190,16 @@ Pages,Pages,Seiten
 Paper,Paper,Papier
 Paste CSV text,Paste CSV text,CSV-Text einfügen
 Paste the CSV contents here,Paste the CSV contents here,CSV-Inhalt hier einfügen
+Pendant lamp,Pendant lamp,Hängelampe
 "Photo-real logs, worn pine floor and dark hardwood shelves (textures from Poly Haven).","Photo-real logs, worn pine floor and dark hardwood shelves (textures from Poly Haven).","Fotoechte Balken, abgenutzter Kiefernboden und dunkle Hartholzregale (Texturen von Poly Haven)."
 "Pick a free spot along a wall. Spots are numbered left to right as seen from the middle of the room. Doors, the window and the fireplace keep their spots.","Pick a free spot along a wall. Spots are numbered left to right as seen from the middle of the room. Doors, the window and the fireplace keep their spots.","Wähle einen freien Platz an einer Wand. Plätze sind von links nach rechts nummeriert, gesehen aus der Raummitte. Türen, Fenster und Kamin behalten ihre Plätze."
 Place shelf,Place shelf,Regal hier aufstellen
+Place,Place,Hinstellen
 Placed on row %d,Placed on row %d,In Reihe %d gestellt
 Plan view,Plan view,Grundriss
+Plants,Plants,Pflanzen
 Please enter a title,Please enter a title,Bitte gib einen Titel ein
+Potted plant,Potted plant,Topfpflanze
 Previous spot,Previous spot,Vorheriger Platz
 Put in tray,Put in tray,In die Ablage
 Rating,Rating,Bewertung
@@ -174,6 +207,7 @@ Read more,Read more,Mehr lesen
 Read,Read,Gelesen
 Reading %s…,Reading %s…,Lese %s…
 Reading table · %d,Reading table · %d,Lesetisch · %d
+Reading table,Reading table,Lesetisch
 Reading,Reading,Lese ich
 Refresh cover,Refresh cover,Cover erneuern
 Refresh details,Refresh details,Details aktualisieren
@@ -196,6 +230,7 @@ Room view: swipe down to look up.,Room view: swipe down to look up.,Raumansicht:
 "Room view: swipe right to turn left, like grabbing the room.","Room view: swipe right to turn left, like grabbing the room.","Raumansicht: nach rechts wischen dreht nach links, als würdest du den Raum greifen."
 Row %d,Row %d,Reihe %d
 row %d,row %d,Reihe %d
+Rug,Rug,Teppich
 Save,Save,Speichern
 Saved,Saved,Gespeichert
 Scandi Bright,Scandi Bright,Skandi Hell
@@ -204,6 +239,7 @@ Search online,Search online,Online suchen
 Search,Search,Suchen
 "Searches Google Books, then Open Library. New books go to the current room.","Searches Google Books, then Open Library. New books go to the current room.","Sucht bei Google Books, dann Open Library. Neue Bücher kommen in den aktuellen Raum."
 Searching…,Searching…,Suche…
+Seating,Seating,Sitzmöbel
 "Series, e.g. The Kingkiller Chronicle #1","Series, e.g. The Kingkiller Chronicle #1","Reihe, z. B. Die Königsmörder-Chronik #1"
 Settings,Settings,Einstellungen
 Shelf added on the %s wall,Shelf added on the %s wall,Regal an der %s-Wand hinzugefügt
@@ -216,6 +252,7 @@ Show more (%d left),Show more (%d left),Mehr anzeigen (%d weitere)
 Show more,Show more,Mehr anzeigen
 Show on shelf,Show on shelf,Im Regal zeigen
 Shown,Shown,Sichtbar
+Side table,Side table,Beistelltisch
 Silver,Silver,Silber
 Skip books already in my library,Skip books already in my library,"Bücher überspringen, die ich schon habe"
 Slate,Slate,Schiefer
@@ -233,9 +270,12 @@ Start reading,Start reading,Lesen beginnen
 "Stone walls, slate floor, gothic chairs, candles and a treasure chest (Poly Haven models).","Stone walls, slate floor, gothic chairs, candles and a treasure chest (Poly Haven models).","Steinwände, Schieferboden, gotische Stühle, Kerzen und eine Schatzkiste (Poly-Haven-Modelle)."
 Style,Style,Stil
 Style: %s,Style: %s,Stil: %s
+Swivel chair,Swivel chair,Drehstuhl
 System,System,System
+Tables,Tables,Tische
 "Tags / tropes, comma separated","Tags / tropes, comma separated","Tags / Tropes, durch Komma getrennt"
 taken,taken,belegt
+"Tap a piece to move it, or pick one from below","Tap a piece to move it, or pick one from below","Tipp ein Möbelstück an, um es zu versetzen, oder wähl unten eins aus"
 Tap a row on the shelf to place the book,Tap a row on the shelf to place the book,"Tippe eine Reihe im Regal an, um das Buch abzustellen"
 Tap a spot on the shelf to place it,Tap a spot on the shelf to place it,"Tippe eine Stelle im Regal an, um es abzustellen"
 Tap a spot on the shelf to place the selected book,Tap a spot on the shelf to place the selected book,"Tippe eine Stelle im Regal an, um das gewählte Buch abzustellen"
@@ -244,8 +284,10 @@ The book is deleted from your library.,The book is deleted from your library.,Da
 "The books are re-ordered and the rows filled again from the top. A book that will not fit the row it lands on starts the next one.","The books are re-ordered and the rows filled again from the top. A book that will not fit the row it lands on starts the next one.","Die Bücher werden neu geordnet und die Reihen von oben neu gefüllt. Ein Buch, das in seine Reihe nicht passt, beginnt die nächste."
 The box is empty.,The box is empty.,Die Kiste ist leer.
 "These books keep their shelf spot as a ghost. Tap one, then “Show on shelf” or “Finished reading”.","These books keep their shelf spot as a ghost. Tap one, then “Show on shelf” or “Finished reading”.","Diese Bücher behalten ihren Regalplatz als Geist. Tippe eines an, dann „Im Regal zeigen“ oder „Fertig gelesen“."
+This room already has a %s.,This room already has a %s.,In diesem Raum steht schon ein %s.
 This room is full. Create a new room from the room menu.,This room is full. Create a new room from the room menu.,Dieser Raum ist voll. Lege im Raummenü einen neuen Raum an.
 This room,This room,Dieser Raum
+Three candles,Three candles,Drei Kerzen
 Timber Lodge,Timber Lodge,Holzlodge
 Title & author,Title & author,Titel & Autor
 "Title, author or ISBN","Title, author or ISBN","Titel, Autor oder ISBN"
@@ -254,16 +296,20 @@ Tray · %s waiting · open a shelf to place them,Tray · %s waiting · open a sh
 "Tray · %s · tap one, then tap the shelf","Tray · %s · tap one, then tap the shelf","Ablage · %s · tippe eines an, dann das Regal"
 Tray · drag a book down here to carry it to another shelf,Tray · drag a book down here to carry it to another shelf,"Ablage · zieh ein Buch hier herunter, um es in ein anderes Regal zu tragen"
 Tray,Tray,Ablage
+Treasure chest,Treasure chest,Schatztruhe
 Turn some covers to face out,Turn some covers to face out,Einige Cover nach vorne drehen
+Turn,Turn,Drehen
 Unknown author,Unknown author,Unbekannter Autor
 "Walls, floor, shelves and colours for the whole library. The furniture in each room stays where you put it.","Walls, floor, shelves and colours for the whole library. The furniture in each room stays where you put it.","Wände, Boden, Regale und Farben für die ganze Bibliothek. Die Einrichtung jedes Raums bleibt, wo du sie hinstellst."
 Want to read,Want to read,Will ich lesen
 West,West,West
 Which books,Which books,Welche Bücher
 "White walls, pale birch and lots of daylight.","White walls, pale birch and lots of daylight.","Weiße Wände, helle Birke und viel Tageslicht."
+Window,Window,Fenster
 "Without a key, search falls back to Open Library once Google's shared quota is used up.","Without a key, search falls back to Open Library once Google's shared quota is used up.","Ohne Schlüssel weicht die Suche auf Open Library aus, sobald Googles gemeinsames Kontingent aufgebraucht ist."
 Wood,Wood,Holz
 "Writing desk with a lamp, swivel chair, globe and plants.","Writing desk with a lamp, swivel chair, globe and plants.","Schreibtisch mit Lampe, Drehstuhl, Globus und Pflanzen."
+Writing desk,Writing desk,Schreibtisch
 Year,Year,Jahr
 Zoomed-in shelf: swipe moves the camera instead of the shelf.,Zoomed-in shelf: swipe moves the camera instead of the shelf.,Im Regal: Wischen bewegt die Kamera statt des Regals.
 “%s” is in the archive box,“%s” is in the archive box,„%s“ liegt in der Archivkiste

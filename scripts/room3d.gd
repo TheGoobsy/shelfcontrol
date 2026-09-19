@@ -165,7 +165,10 @@ func _place_entry(e: Dictionary) -> void:
 	# Measured while the piece is still standing at the origin: the box is its own extent,
 	# which the placement below then moves. Reading it afterwards would count the move twice.
 	var local := Furniture.footprint(node, kind)
+	# a rug blocks nothing but still has to be tappable, so picking measures everything
+	var pick_local := Furniture.raw_footprint(node)
 	var rect := Rect2()
+	var pick := Rect2()
 	match Furniture.anchor(kind):
 		Furniture.WALL:
 			var wall := int(e.get("wall", 0))
@@ -175,9 +178,13 @@ func _place_entry(e: Dictionary) -> void:
 			node.position.y = float(sp.get("y", 0.0))
 			# a fireplace stands well out from the wall, so it takes real floor
 			rect = Furniture.world_rect(local, t.origin.x, t.origin.z, t.basis.get_euler().y)
+			pick = Furniture.world_rect(pick_local, t.origin.x, t.origin.z, t.basis.get_euler().y)
 		Furniture.CEILING:
 			node.position = Vector3(float(e.get("x", 0.0)), float(sp.get("y", Styles.ROOM_H)), float(e.get("z", 0.0)))
 			node.rotation.y = float(e.get("rot", 0.0))
+			# nothing of a hanging lamp touches the floor, so it is picked up by the
+			# patch of floor it hangs over
+			pick = Rect2(Vector2(node.position.x, node.position.z) - Vector2(0.3, 0.3), Vector2(0.6, 0.6))
 		_:
 			var x := float(e.get("x", 0.0))
 			var z := float(e.get("z", 0.0))
@@ -186,10 +193,11 @@ func _place_entry(e: Dictionary) -> void:
 			node.position = Vector3(x, float(e.get("y", 0.0)), z)
 			node.rotation.y = rot
 			rect = Furniture.world_rect(local, x, z, rot)
+			pick = Furniture.world_rect(pick_local, x, z, rot)
 	match kind:
 		"reading_table": table = node
 		"archive_box": archive = node
-	furniture[str(e.get("id", ""))] = {"node": node, "kind": kind, "entry": e, "rect": rect, "local": local}
+	furniture[str(e.get("id", ""))] = {"node": node, "kind": kind, "entry": e, "rect": rect, "pick": pick}
 
 ## The floor boxes the room's furniture stands on, as {id, kind, rect} in room space.
 ## `skip` leaves one piece out, which is what moving a piece needs so it does not
@@ -204,6 +212,23 @@ func furniture_rects(skip := "") -> Array:
 			continue
 		out.append({"id": fid, "kind": f["kind"], "rect": f["rect"]})
 	return out
+
+## The piece standing on a point of the floor, or "". The smallest box wins, so a candle
+## on a crate is picked up rather than the crate, and a chair standing on a rug rather
+## than the rug.
+func furniture_at(p: Vector2) -> String:
+	var best := ""
+	var best_area := INF
+	for fid in furniture:
+		var f: Dictionary = furniture[fid]
+		var r: Rect2 = f["pick"]
+		if r.size == Vector2.ZERO or not r.has_point(p):
+			continue
+		var area := r.size.x * r.size.y
+		if area < best_area:
+			best_area = area
+			best = fid
+	return best
 
 func furniture_node(fid: String) -> Node3D:
 	var f: Dictionary = furniture.get(fid, {})
@@ -316,6 +341,17 @@ func _refresh_archive() -> void:
 		b3.position = Vector3(x + b3.dims.x / 2.0, 0.0, 0.0)
 		b3.rotation = Vector3(0, 0, rng.randf_range(-0.06, 0.06))
 		x += b3.dims.x + 0.006
+
+## Washes a piece the reader is holding towards a colour, so whether it fits reads from
+## the piece itself and not only from the box drawn under it, which a wide piece covers.
+static func set_ghost_tint(n: Node, tint: Color, alpha := 0.6) -> void:
+	if n is MeshInstance3D and n.mesh != null:
+		if not n.has_meta("ghost_src"):
+			n.set_meta("ghost_src", n.get_active_material(0))
+		n.material_override = Materials.ghost_tint(n.get_meta("ghost_src"), tint, alpha)
+		n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for c in n.get_children():
+		set_ghost_tint(c, tint, alpha)
 
 func prop_by_body(body: Object) -> String:
 	if body == null or not body.has_meta("prop"):
