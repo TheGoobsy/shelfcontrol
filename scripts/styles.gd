@@ -240,6 +240,14 @@ func around_room(shelves: Array) -> Array:
 		return fposmod(atan2(pa.x, -pa.z) + PI / 4.0, TAU) < fposmod(atan2(pb.x, -pb.z) + PI / 4.0, TAU))
 	return out
 
+## The patch of floor one wall spot covers, squared up to the room's axes. A bookcase, a
+## door and the window all reserve exactly this, so the ring of spots reads as one row of
+## equal places rather than a jumble of whatever each thing happens to measure.
+func slot_rect(wall: int, slot: int) -> Rect2:
+	var t := shelf_transform(wall, slot)
+	var size := Vector2(SHELF_W, SHELF_D) if wall % 2 == 0 else Vector2(SHELF_D, SHELF_W)
+	return Rect2(Vector2(t.origin.x, t.origin.z) - size / 2.0, size)
+
 func shelf_transform(wall: int, slot: int) -> Transform3D:
 	return wall_transform(wall, slot_offset(wall, slot), SHELF_D, SKIRT_T)
 

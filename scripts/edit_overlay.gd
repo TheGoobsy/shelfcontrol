@@ -109,15 +109,8 @@ func _build_ring(room: Dictionary) -> Mesh:
 	var rid := str(room.get("id", ""))
 	for wall in 4:
 		for slot in Styles.slot_count(wall):
-			var t := Styles.shelf_transform(wall, slot)
-			var along := Styles.SHELF_W
-			var deep := Styles.SHELF_D
-			# the transform already turns the spot to face the room, so the box is
-			# measured along the wall and out from it, then squared up to the axes
-			var size := Vector2(along, deep) if wall % 2 == 0 else Vector2(deep, along)
-			var r := Rect2(Vector2(t.origin.x, t.origin.z) - size / 2.0, size)
 			var col := SLOT_FREE if Library.is_slot_free(rid, wall, slot) else SLOT_TAKEN
-			_outline(st, r, RING_LIFT, col)
+			_outline(st, Styles.slot_rect(wall, slot), RING_LIFT, col)
 	return st.commit()
 
 ## Four thin quads making the border of `r`.

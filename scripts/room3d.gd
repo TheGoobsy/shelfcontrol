@@ -176,8 +176,11 @@ func _place_entry(e: Dictionary) -> void:
 			var t := Styles.wall_transform(wall, Styles.slot_offset(wall, slot), float(sp.get("depth", 0.2)))
 			node.transform = t
 			node.position.y = float(sp.get("y", 0.0))
-			# a fireplace stands well out from the wall, so it takes real floor
-			rect = Furniture.world_rect(local, t.origin.x, t.origin.z, t.basis.get_euler().y)
+			# It holds its whole wall spot, the same patch a bookcase or a door would,
+			# so the ring reads as one row of equal places. A hearth reaches further out
+			# into the room than that, and keeps whichever is the larger.
+			rect = Styles.slot_rect(wall, slot).merge(
+				Furniture.world_rect(local, t.origin.x, t.origin.z, t.basis.get_euler().y))
 			pick = Furniture.world_rect(pick_local, t.origin.x, t.origin.z, t.basis.get_euler().y)
 		Furniture.CEILING:
 			node.position = Vector3(float(e.get("x", 0.0)), float(sp.get("y", Styles.ROOM_H)), float(e.get("z", 0.0)))

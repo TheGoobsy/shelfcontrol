@@ -309,16 +309,10 @@ func blocked_rects(skip := "") -> Array:
 		out.append(f["rect"])
 	var room := current_room()
 	for sh in room.get("shelves", []):
-		out.append(_wall_rect(int(sh["wall"]), int(sh["slot"]), Styles.SHELF_D))
+		out.append(Styles.slot_rect(int(sh["wall"]), int(sh["slot"])))
 	for d in room.get("doors", []):
-		out.append(_wall_rect(int(d["wall"]), int(d["slot"]), 0.12))
+		out.append(Styles.slot_rect(int(d["wall"]), int(d["slot"])))
 	return out
-
-## The floor box of something standing on a wall slot, squared up to the room's axes.
-func _wall_rect(wall: int, slot: int, depth: float) -> Rect2:
-	var t := Styles.shelf_transform(wall, slot)
-	var size := Vector2(Styles.SHELF_W, depth) if wall % 2 == 0 else Vector2(depth, Styles.SHELF_W)
-	return Rect2(Vector2(t.origin.x, t.origin.z) - size / 2.0, size)
 
 func refresh_overlay() -> void:
 	if edit_overlay != null:
@@ -1389,6 +1383,10 @@ func _run_shot() -> void:
 			rig.snap(eye, CameraRig.look_basis(eye, _prop_aim("archive", 0.15)), 38.0)
 		"edit":
 			enter_edit()
+		"edit_seating", "edit_wall", "edit_lighting", "edit_plants", "edit_tables", "edit_decor":
+			enter_edit()
+			hud.edit_cat = shot_mode.substr(5)
+			hud._rebuild_inventory()
 		"edit_room":
 			enter_edit()
 			toggle_edit_view()

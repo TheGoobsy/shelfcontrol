@@ -75,6 +75,8 @@ var edit_item_box: HBoxContainer
 var edit_place_btn: Button
 var edit_remove_btn: Button
 var edit_cat := "functional"
+var thumbs: FurnitureThumbs
+var _thumb_tiles: Dictionary = {}   # kind -> the tile waiting for its picture
 var place_panel: PanelContainer
 var place_where: Label
 var place_count: Label
@@ -94,6 +96,10 @@ func setup(m: Node) -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+	# has to exist before the editing bar, which asks it for its first pictures
+	thumbs = FurnitureThumbs.new()
+	add_child(thumbs)
+	thumbs.ready_for.connect(_on_thumb)
 	_build_top()
 	_build_side()
 	_build_bottom()
@@ -141,6 +147,8 @@ func on_accent() -> Color:
 	return Color(0.1, 0.08, 0.06) if accent().get_luminance() > 0.5 else Color.WHITE
 
 func apply_style(st: Dictionary) -> void:
+	if thumbs != null:
+		thumbs.set_style(st, str(Library.get_style_id()))
 	style = st
 	var th := Theme.new()
 	th.default_font = sans
@@ -627,7 +635,7 @@ func _build_edit_bar() -> void:
 	edit_browse.add_theme_constant_override("separation", 8)
 	v.add_child(edit_browse)
 	edit_cat_box = _scroller(edit_browse, 74)
-	edit_item_box = _scroller(edit_browse, 128)
+	edit_item_box = _scroller(edit_browse, 190)
 
 	# what replaces the inventory once a piece is in hand
 	edit_place_row = HBoxContainer.new()
@@ -695,13 +703,30 @@ func _rebuild_inventory() -> void:
 			edit_cat = cat
 			_rebuild_inventory())
 		edit_cat_box.add_child(b)
-	for kind in Furniture.in_category(edit_cat):
-		var b := button(tr(Furniture.display_name(kind)), "Tile", 116)
-		b.custom_minimum_size = Vector2(190, 116)
+	_thumb_tiles.clear()
+	var kinds := Furniture.in_category(edit_cat)
+	for kind in kinds:
+		var b := button(tr(Furniture.display_name(kind)), "Tile", 176)
+		b.custom_minimum_size = Vector2(176, 176)
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.clip_text = true
+		b.expand_icon = true
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		b.add_theme_constant_override("icon_max_width", 112)
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.pressed.connect(func(): furniture_picked.emit(kind))
 		edit_item_box.add_child(b)
+		_thumb_tiles[kind] = b
+	if thumbs != null:
+		thumbs.request(kinds)
+
+## A picture has come back from the thumbnail viewport; put it on its tile, if that tile
+## is still the one on screen.
+func _on_thumb(kind: String, tex: Texture2D) -> void:
+	var b = _thumb_tiles.get(kind)
+	if b is Button and is_instance_valid(b):
+		b.icon = tex
 
 ## Turns the furnishing interface on. The title bar keeps naming the room, so the reader
 ## can still see which one they are arranging.
@@ -709,6 +734,8 @@ func set_editing(on: bool, room_name := "", subtitle := "", top_view := true) ->
 	editing = on
 	edit_panel.visible = on
 	if on:
+		# the bar is built before the style is known, so the pictures are asked for here
+		_rebuild_inventory()
 		title_lbl.text = room_name
 		sub_lbl.text = subtitle
 		edit_view_btn.text = tr("Room view") if top_view else tr("Plan view")
