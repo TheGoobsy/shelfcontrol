@@ -17,6 +17,15 @@ signal tray_changed()
 const SAVE_PATH := "user://library.json"
 const VERSION := 1
 const SHELF_ROWS := 5
+
+## Name-plate looks. Each is [plate colour, text colour, metallic, roughness, serif].
+const TAG_STYLES := {
+	"brass": {"plate": "#b08d3f", "ink": "#2a1d08", "metallic": 0.85, "rough": 0.30, "serif": true},
+	"silver": {"plate": "#b9bcc2", "ink": "#23262b", "metallic": 0.9, "rough": 0.25, "serif": false},
+	"wood": {"plate": "#5a3a1e", "ink": "#e8dcc0", "metallic": 0.0, "rough": 0.75, "serif": true},
+	"paper": {"plate": "#e6dcc2", "ink": "#3a2d1c", "metallic": 0.0, "rough": 0.9, "serif": true},
+	"slate": {"plate": "#2b2f33", "ink": "#eceff2", "metallic": 0.0, "rough": 0.85, "serif": false},
+}
 const SHELF_INNER_WIDTH := 1.13
 const ROW_PADDING := 0.015
 const BOOK_GAP := 0.003
@@ -314,6 +323,21 @@ func rename_shelf(sid: String, shelf_name: String) -> void:
 	structure_changed.emit()
 	save()
 
+## Name plate on the front of the case. `style` is one of TAG_STYLES; "" leaves it as is.
+func set_shelf_tag(sid: String, on: bool, tag_style := "") -> void:
+	var s := get_shelf(sid)
+	if s.is_empty():
+		return
+	s["tag_on"] = on
+	if tag_style != "":
+		s["tag_style"] = tag_style
+	structure_changed.emit()
+	save()
+
+func shelf_tag_style(s: Dictionary) -> String:
+	var t := str(s.get("tag_style", "brass"))
+	return t if TAG_STYLES.has(t) else "brass"
+
 func remove_shelf(sid: String) -> void:
 	var r := get_shelf_room(sid)
 	if r.is_empty():
@@ -577,6 +601,82 @@ func row_used_width(sid: String, row: int, exclude_id := "") -> float:
 
 func row_free_width(sid: String, row: int, exclude_id := "") -> float:
 	return SHELF_INNER_WIDTH - 2.0 * ROW_PADDING - row_used_width(sid, row, exclude_id)
+
+## Reorders one shelf's books by `key` ("title", "author", "genre" or "year") and repacks
+## the rows top to bottom. A book that will not fit the row it lands on starts the next
+## one, so nothing is pushed off the shelf. Anything left over goes to the tray, which
+## only happens if the shelf was already overfull. Returns how many moved to the tray.
+func sort_shelf(sid: String, key: String) -> int:
+	var s := get_shelf(sid)
+	if s.is_empty():
+		return 0
+	var ids: Array = []
+	for row in s["rows"]:
+		ids.append_array(row)
+	var books: Dictionary = data["books"]
+	var title_of := func(id): return str(books[id].get("title", "")).to_lower()
+	match key:
+		"author":
+			ids.sort_custom(func(a, b):
+				var aa := author_line(books[a]).to_lower()
+				var bb := author_line(books[b]).to_lower()
+				if aa == bb:
+					return title_of.call(a) < title_of.call(b)
+				return aa < bb)
+		"genre":
+			ids.sort_custom(func(a, b):
+				var ga := _first_genre(books[a])
+				var gb := _first_genre(books[b])
+				if ga == gb:
+					return title_of.call(a) < title_of.call(b)
+				# Books with no genre sink to the end rather than leading the shelf.
+				if ga == "":
+					return false
+				if gb == "":
+					return true
+				return ga < gb)
+		"year":
+			ids.sort_custom(func(a, b):
+				var ya := str(books[a].get("year", ""))
+				var yb := str(books[b].get("year", ""))
+				if ya == yb:
+					return title_of.call(a) < title_of.call(b)
+				if ya == "":
+					return false
+				if yb == "":
+					return true
+				return ya < yb)
+		_:
+			ids.sort_custom(func(a, b): return title_of.call(a) < title_of.call(b))
+	var rows: Array = []
+	for i in SHELF_ROWS:
+		rows.append([])
+	var limit := SHELF_INNER_WIDTH - 2.0 * ROW_PADDING
+	var r := 0
+	var used := 0.0
+	var spilled: Array = []
+	for id in ids:
+		var w := book_shelf_width(books[id]) + BOOK_GAP
+		while r < SHELF_ROWS and used + w > limit:
+			r += 1
+			used = 0.0
+		if r >= SHELF_ROWS:
+			spilled.append(id)
+			continue
+		rows[r].append(id)
+		used += w
+	s["rows"] = rows
+	for id in spilled:
+		to_tray(id)
+	placement_changed.emit([sid])
+	save()
+	return spilled.size()
+
+static func _first_genre(b: Dictionary) -> String:
+	var g: Array = b.get("genres", [])
+	if g.is_empty():
+		return ""
+	return str(g[0]).to_lower()
 
 func fits_in_row(book_id: String, sid: String, row: int) -> bool:
 	var b := get_book(book_id)

@@ -9,6 +9,10 @@ const SHELF_W := 1.2
 const SHELF_H := 2.2
 const SHELF_D := 0.32
 const SLOT_PITCH := 1.45
+## Depth of the skirting board. Bookcases stand this far off the wall so the board
+## runs behind them instead of cutting through the plinth.
+const SKIRT_T := 0.03
+const SKIRT_H := 0.1
 
 const WALL_NAMES := ["North", "East", "South", "West"]
 
@@ -201,22 +205,25 @@ func slot_offset(wall: int, slot: int) -> float:
 	return (float(slot) - float(n - 1) / 2.0) * SLOT_PITCH
 
 ## Wall-anchored transform: origin on the floor at the shelf footprint centre, +z facing the room.
-func wall_transform(wall: int, along: float, depth: float) -> Transform3D:
+## `clearance` holds the object that far off the wall, the way real furniture stands
+## proud of the skirting board instead of passing through it.
+func wall_transform(wall: int, along: float, depth: float, clearance := 0.0) -> Transform3D:
 	var basis: Basis
 	var pos: Vector3
+	var off := depth / 2.0 + clearance
 	match wall:
 		0:
 			basis = Basis.IDENTITY
-			pos = Vector3(along, 0.0, -ROOM_D / 2.0 + depth / 2.0)
+			pos = Vector3(along, 0.0, -ROOM_D / 2.0 + off)
 		1:
 			basis = Basis(Vector3.UP, -PI / 2.0)
-			pos = Vector3(ROOM_W / 2.0 - depth / 2.0, 0.0, along)
+			pos = Vector3(ROOM_W / 2.0 - off, 0.0, along)
 		2:
 			basis = Basis(Vector3.UP, PI)
-			pos = Vector3(-along, 0.0, ROOM_D / 2.0 - depth / 2.0)
+			pos = Vector3(-along, 0.0, ROOM_D / 2.0 - off)
 		_:
 			basis = Basis(Vector3.UP, PI / 2.0)
-			pos = Vector3(-ROOM_W / 2.0 + depth / 2.0, 0.0, -along)
+			pos = Vector3(-ROOM_W / 2.0 + off, 0.0, -along)
 	return Transform3D(basis, pos)
 
 ## Where a door goes on each wall, in order of preference: never the centre slot of the long walls
@@ -258,7 +265,7 @@ func around_room(shelves: Array) -> Array:
 	return out
 
 func shelf_transform(wall: int, slot: int) -> Transform3D:
-	return wall_transform(wall, slot_offset(wall, slot), SHELF_D)
+	return wall_transform(wall, slot_offset(wall, slot), SHELF_D, SKIRT_T)
 
 ## The wall-centre slot used by wide decor (fireplace, window). Only long walls have one.
 func center_slot(wall: int) -> int:

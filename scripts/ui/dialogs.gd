@@ -541,7 +541,7 @@ func open_room_menu() -> void:
 	c.add_child(hud.spacer(6))
 	c.add_child(hud.label("This room", "SectionLabel"))
 	hud.tiles(c, [
-		{"label": "Add shelf", "icon": "shelf", "accent": true, "cb": func(): _add_shelf_picker(rid)},
+		{"label": "Add shelf", "icon": "shelf", "accent": true, "cb": func(): _start_place_shelf(rid)},
 		{"label": "Rename", "icon": "pencil", "cb": func():
 			prompt("Rename room", str(room["name"]), "Room name", func(t: String): Library.rename_room(rid, t))},
 		{"label": "New room", "icon": "door", "cb": func():
@@ -562,38 +562,15 @@ func open_room_type(_rid: String) -> void:
 	open_room_menu()
 
 
-func _add_shelf_picker(rid: String) -> void:
-	var c := hud.open_sheet("Add a shelf", 0.85)
-	c.add_child(hud.label("Pick a free spot along a wall. Spots are numbered left to right as seen from the middle of the room. Doors, the window and the fireplace keep their spots.", "MutedLabel"))
-	var any := false
-	for wall in 4:
-		var sec := hud.section(c, tr("%s wall") % tr(Styles.WALL_NAMES[wall]))
-		var g := GridContainer.new()
-		g.columns = 5
-		g.add_theme_constant_override("h_separation", 10)
-		g.add_theme_constant_override("v_separation", 10)
-		for slot in Styles.slot_count(wall):
-			var b := hud.button(tr("Spot %d") % (slot + 1), "", 80)
-			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			b.add_theme_font_size_override("font_size", 25)
-			var free := Library.is_slot_free(rid, wall, slot)
-			b.disabled = not free
-			if not free:
-				b.text = tr("taken")
-			else:
-				any = true
-			var w := wall
-			var sl := slot
-			b.pressed.connect(func():
-				var sid := Library.add_shelf(rid, w, sl)
-				hud.close_sheet()
-				hud.toast(tr("Shelf added on the %s wall") % tr(Styles.WALL_NAMES[w]).to_lower())
-				if sid != "":
-					main().enter_shelf_by_id(sid))
-			g.add_child(b)
-		sec.add_child(g)
-	if not any:
-		c.add_child(hud.label("This room is full. Create a new room from the room menu.", "MutedLabel"))
+## Closes the sheet and hands over to the in-room preview, where a see-through case
+## stands on a candidate spot and the arrows step through the free ones.
+func _start_place_shelf(rid: String) -> void:
+	hud.close_sheet()
+	if main().current_room_id() != rid:
+		# Room swaps fade out and back, and the fade rebuilds the room, so wait it out.
+		main().go_to_room_id(rid)
+		await main().get_tree().create_timer(0.6).timeout
+	main().begin_place_shelf()
 
 # ---------------------------------------------------------------- shelf menu
 
@@ -615,6 +592,8 @@ func open_shelf_menu(sid: String) -> void:
 		{"label": "Spines out", "icon": "book", "cb": func():
 			_set_face_out_all(sid, false)
 			hud.close_sheet()},
+		{"label": "Sort books", "icon": "list", "cb": func(): _sort_shelf_picker(sid)},
+		{"label": "Name tag", "icon": "palette", "cb": func(): _name_tag_picker(sid)},
 		{"label": "Empty to tray", "icon": "tray", "cb": func():
 			confirm("Empty this shelf?", tr("All %d books move to the tray so you can place them elsewhere.") % Library.shelf_book_count(sid), "Empty shelf", func():
 				var ids: Array = []
@@ -628,6 +607,57 @@ func open_shelf_menu(sid: String) -> void:
 		confirm(tr("Delete “%s”?") % str(sh["name"]), tr("Its %d books move to the tray.") % Library.shelf_book_count(sid), "Delete shelf", func():
 			Library.remove_shelf(sid)
 			hud.toast("Shelf deleted · books are in the tray")), true]])
+
+## Reorders the whole shelf by one key and repacks the rows from the top.
+func _sort_shelf_picker(sid: String) -> void:
+	var c := hud.open_sheet("Sort this shelf", 0.6)
+	c.add_child(hud.label("The books are re-ordered and the rows filled again from the top. A book that will not fit the row it lands on starts the next one.", "MutedLabel"))
+	for opt in [["title", "Title"], ["author", "Author"], ["genre", "Genre"], ["year", "Year"]]:
+		var key := str(opt[0])
+		var label := str(opt[1])
+		var b := hud.button(label, "", 92)
+		b.pressed.connect(func():
+			var spilled := Library.sort_shelf(sid, key)
+			hud.close_sheet()
+			if spilled > 0:
+				hud.toast(tr("Sorted · %d books did not fit and went to the tray") % spilled)
+			else:
+				hud.toast(tr("Shelf sorted by %s") % tr(label).to_lower()))
+		c.add_child(b)
+
+## Turns the name plate on the front of the case on or off and picks its material.
+func _name_tag_picker(sid: String) -> void:
+	var s := Library.get_shelf(sid)
+	if s.is_empty():
+		return
+	var c := hud.open_sheet("Name tag", 0.62)
+	c.add_child(hud.label("A small plate on the front of the case carrying this shelf's name.", "MutedLabel"))
+	var on := bool(s.get("tag_on", false))
+	var styles := [["brass", "Brass"], ["silver", "Silver"], ["wood", "Wood"], ["paper", "Paper"], ["slate", "Slate"]]
+	hud.segmented(c, [[true, "Shown"], [false, "Hidden"]], on, func(v):
+		on = bool(v)
+		Library.set_shelf_tag(sid, on))
+	var sec := hud.section(c, tr("Material"))
+	var g := GridContainer.new()
+	g.columns = 3
+	g.add_theme_constant_override("h_separation", 10)
+	g.add_theme_constant_override("v_separation", 10)
+	for st in styles:
+		var key := str(st[0])
+		var b := hud.button(str(st[1]), "", 88)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var spec: Dictionary = Library.TAG_STYLES[key]
+		# Each button wears the plate it would put on the shelf.
+		b.add_theme_stylebox_override("normal", hud._flat(Color.html(str(spec["plate"])), 14))
+		b.add_theme_stylebox_override("hover", hud._flat(Color.html(str(spec["plate"])).lightened(0.1), 14))
+		b.add_theme_color_override("font_color", Color.html(str(spec["ink"])))
+		b.add_theme_color_override("font_hover_color", Color.html(str(spec["ink"])))
+		b.pressed.connect(func():
+			# Picking a material turns the tag on, otherwise nothing visibly happens.
+			Library.set_shelf_tag(sid, true, key)
+			hud.close_sheet())
+		g.add_child(b)
+	sec.add_child(g)
 
 func _set_face_out_all(sid: String, face_out: bool) -> int:
 	var s := Library.get_shelf(sid)

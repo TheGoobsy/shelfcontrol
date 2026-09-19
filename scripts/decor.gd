@@ -36,6 +36,53 @@ static func sphere(parent: Node3D, r: float, pos: Vector3, mat: Material, scl :=
 	sm.rings = 8
 	return _mesh(parent, sm, pos, mat, rot, scl)
 
+## A mug handle, swept as one mesh: a C that springs from the mug wall rather than a
+## closed ring parked beside the cup. The sweep is centred on the wall itself, so both
+## ends run back into the solid body and only the outer arc is ever visible.
+## `mug_centre` is the mug's mid-height centre, `out_dir` the horizontal direction the
+## handle sticks out, `mug_r` the mug's radius at that height.
+static func mug_handle(parent: Node3D, mug_centre: Vector3, out_dir: Vector3, mug_r: float, mat: Material,
+		arc_r := 0.026, tube := 0.006, span_deg := 250.0) -> MeshInstance3D:
+	var out := Vector3(out_dir.x, 0.0, out_dir.z).normalized()
+	var up := Vector3.UP
+	var side := out.cross(up).normalized()
+	var centre := mug_centre + out * mug_r
+	var span := deg_to_rad(span_deg)
+	var steps := 18
+	var ring := 8
+	var pts: Array = []
+	var nrm: Array = []
+	for i in steps + 1:
+		var t := -span / 2.0 + span * float(i) / float(steps)
+		var radial := out * cos(t) + up * sin(t)
+		var c := centre + radial * arc_r
+		var rp := PackedVector3Array()
+		var rn := PackedVector3Array()
+		for j in ring:
+			var u := TAU * float(j) / float(ring)
+			var n := (radial * cos(u) + side * sin(u)).normalized()
+			rp.append(c + n * tube)
+			rn.append(n)
+		pts.append(rp)
+		nrm.append(rn)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in steps:
+		for j in ring:
+			var k := (j + 1) % ring
+			# Wound so the clockwise face looks outward, matching the rest of the meshes here.
+			_tri(st, pts[i][j], nrm[i][j], pts[i][k], nrm[i][k], pts[i + 1][k], nrm[i + 1][k])
+			_tri(st, pts[i][j], nrm[i][j], pts[i + 1][k], nrm[i + 1][k], pts[i + 1][j], nrm[i + 1][j])
+	return _mesh(parent, st.commit(), Vector3.ZERO, mat)
+
+static func _tri(st: SurfaceTool, a: Vector3, na: Vector3, b: Vector3, nb: Vector3, c: Vector3, nc: Vector3) -> void:
+	st.set_normal(na)
+	st.add_vertex(a)
+	st.set_normal(nb)
+	st.add_vertex(b)
+	st.set_normal(nc)
+	st.add_vertex(c)
+
 # ---------------------------------------------------------------- plants
 
 static func _leaf(parent: Node3D, mat: Material, base: Vector3, yaw: float, tilt: float, length: float, width: float, thickness := 0.012) -> MeshInstance3D:
@@ -96,12 +143,18 @@ static func plant(style: Dictionary, rng: RandomNumberGenerator) -> Node3D:
 
 ## Small potted plants for the top of a bookcase. Three kinds, sized for a 1.2 m wide case
 ## and driven by the shelf's own seed so they stay put between rebuilds.
-static func shelf_plant(style: Dictionary, rng: RandomNumberGenerator) -> Node3D:
+## `kind` picks the plant (-1 rolls one). `front_clear` is how far the pot stands from
+## the front edge of whatever it sits on; the trailing kind uses it so its vines only
+## start to fall once they are past that edge. `face` turns the trailing fan, and must
+## come through here rather than as a rotation on the node, or the drop would be
+## measured against the wrong direction and the vines would dip through the top board.
+static func shelf_plant(style: Dictionary, rng: RandomNumberGenerator, kind := -1, front_clear := 0.09, face := 0.0) -> Node3D:
 	var root := Node3D.new()
 	var pot_col: Color = style.get("pot", Color(0.6, 0.35, 0.25))
 	var pot := Materials.std(pot_col.lightened(rng.randf() * 0.18), 0.85)
 	var soil := Materials.std(Color(0.16, 0.11, 0.07), 1.0)
-	var kind := rng.randi() % 3
+	if kind < 0:
+		kind = rng.randi() % 3
 	if kind == 0:
 		# leafy pot plant
 		var r := 0.05 + rng.randf() * 0.018
@@ -120,18 +173,29 @@ static func shelf_plant(style: Dictionary, rng: RandomNumberGenerator) -> Node3D
 		cyl(root, r * 0.9, r * 0.9, 0.01, Vector3(0, 0.075, 0), soil)
 		var vines := 3 + rng.randi() % 3
 		for v in vines:
-			var yaw := rng.randf_range(0.6, 2.55) * (1.0 if v % 2 == 0 else -1.0)
-			var reach := 0.10 + rng.randf() * 0.08
+			# Fanned towards +z, which the caller has pointed at the room.
+			var yaw := face + rng.randf_range(-0.7, 0.7)
+			# Reach is set so every vine clears the front edge by a real margin, however
+			# far off-axis it runs.
+			var overhang := 0.045 + rng.randf() * 0.085
+			var reach := (front_clear + overhang) / cos(yaw)
 			var drop := 0.16 + rng.randf() * 0.16
 			var pts: Array = []
 			var steps := 9
 			for i in steps:
 				var t := float(i) / float(steps - 1)
 				var out := reach * t
-				pts.append(Vector3(sin(yaw) * out, 0.08 - drop * t * t, cos(yaw) * out))
+				var fwd := cos(yaw) * out
+				# Lies along the top until it is past the edge, then spills over.
+				var f: float = clampf((fwd - front_clear) / overhang, 0.0, 1.0)
+				pts.append(Vector3(sin(yaw) * out, 0.08 - drop * f * f, cos(yaw) * out))
 			var stem := Materials.std(Color(0.22, 0.34, 0.16), 0.9)
 			tube(root, pts, 0.006, 0.003, stem, 6)
 			for i in range(2, steps):
+				# Leaves hang almost straight down, so none go on the length still lying
+				# across the top board: those would drop straight through it.
+				if pts[i].z < front_clear:
+					continue
 				var g := Color(0.15 + rng.randf() * 0.08, 0.36 + rng.randf() * 0.16, 0.16 + rng.randf() * 0.07)
 				_leaf(root, Materials.double_sided(g, 0.8), pts[i],
 					yaw + (PI / 2.0 if i % 2 == 0 else -PI / 2.0) + rng.randf() * 0.4,
@@ -463,6 +527,7 @@ static func side_table(style: Dictionary, rng: RandomNumberGenerator) -> Node3D:
 		y += t
 	var mug := Materials.std(Color(0.92, 0.88, 0.80), 0.4)
 	cyl(root, 0.04, 0.036, 0.09, Vector3(0.12, 0.615, 0.05), mug)
+	mug_handle(root, Vector3(0.12, 0.615, 0.05), Vector3(1, 0, -0.2), 0.037, mug)
 	return root
 
 static func pendant(style: Dictionary) -> Node3D:
@@ -547,10 +612,7 @@ static func reading_table(style: Dictionary) -> Node3D:
 	cyl(root, 0.055, 0.055, 0.006, Vector3(0.36, TOP_Y + 0.003, 0.14), Materials.std(Color(0.35, 0.22, 0.14), 0.9))
 	var mug := Materials.std(Color(0.92, 0.88, 0.80), 0.55)
 	cyl(root, 0.04, 0.036, 0.09, Vector3(0.36, TOP_Y + 0.051, 0.14), mug)
-	var handle := TorusMesh.new()
-	handle.inner_radius = 0.012
-	handle.outer_radius = 0.026
-	_mesh(root, handle, Vector3(0.405, TOP_Y + 0.05, 0.14), mug, Vector3(0, 0, PI / 2.0))
+	mug_handle(root, Vector3(0.36, TOP_Y + 0.051, 0.14), Vector3(1, 0, 0.3), 0.037, mug)
 	var stack := Node3D.new()
 	stack.name = "Stack"
 	stack.position = Vector3(-0.12, TOP_Y, 0)
@@ -633,6 +695,7 @@ static func desk(style: Dictionary) -> Node3D:
 		cyl(root, 0.004, 0.004, 0.16, Vector3(0.42 + (i - 1) * 0.012, TOP + 0.12, -0.15 + (i % 2) * 0.012), Materials.std([Color(0.1, 0.2, 0.6), Color(0.7, 0.1, 0.1), Color(0.1, 0.1, 0.1)][i], 0.4), Vector3((i - 1) * 0.12, 0, 0.1))
 	var mug := Materials.std(Color(0.90, 0.86, 0.78), 0.55)
 	cyl(root, 0.04, 0.036, 0.09, Vector3(0.22, TOP + 0.045, 0.2), mug)
+	mug_handle(root, Vector3(0.22, TOP + 0.045, 0.2), Vector3(1, 0, 0.25), 0.037, mug)
 	# banker's lamp: brass stem, green shade, warm light
 	var green := Materials.std(Color(0.10, 0.35, 0.22), 0.4)
 	cyl(root, 0.06, 0.07, 0.02, Vector3(-0.55, TOP + 0.01, -0.18), brass)

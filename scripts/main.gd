@@ -36,10 +36,18 @@ var drag_row := -1
 var drag_index := -1
 var drag_fits := true
 var drag_over_tray := false
+var _drag_depth := 1.0
 var _last_preview := ""
 var _night_now := false
 var _last_tap_time := 0
 var _last_tap_pos := Vector2.ZERO
+
+## Choosing a spot for a new shelf: a see-through case stands on the candidate spot and
+## the arrows step through every free spot in the room.
+var placing_shelf := false
+var place_spots: Array = []
+var place_index := 0
+var ghost_shelf: Shelf3D
 
 var demo := false
 var shot_path := ""
@@ -80,6 +88,10 @@ func _ready() -> void:
 			hud.dialogs.open_shelf_menu(active_shelf.shelf_id)
 		else:
 			hud.dialogs.open_room_menu())
+	hud.place_prev_pressed.connect(func(): place_step(-1))
+	hud.place_next_pressed.connect(func(): place_step(1))
+	hud.place_confirm_pressed.connect(confirm_place_shelf)
+	hud.place_cancel_pressed.connect(cancel_place_shelf)
 	hud.tray_chip_pressed.connect(_on_tray_chip)
 	hud.settings_pressed.connect(func(): hud.dialogs.open_settings())
 	hud.books_pressed.connect(func(): hud.dialogs.open_all_books())
@@ -183,6 +195,8 @@ func _go_through_door(to_rid: String) -> void:
 	_fade_to(func(): _load_room(idx, face))
 
 func _load_room(index: int, face_yaw := INF) -> void:
+	# The ghost lives under the room node, so a rebuild would leave placement half-alive.
+	cancel_place_shelf()
 	room_index = clamp(index, 0, max(0, Library.room_count() - 1))
 	if is_finite(face_yaw):
 		yaw = face_yaw
@@ -206,6 +220,91 @@ func _update_room_hud() -> void:
 	if Library.room_count() > 1:
 		sub = tr("Room %d of %d") % [room_index + 1, Library.room_count()] + " · " + sub
 	hud.set_room_mode(str(room.get("name", "Room")), sub, Library.room_count() > 1)
+
+# ---------------------------------------------------------------- placing a shelf
+
+## Opens the placement preview: a see-through case on the first free spot in the room.
+func begin_place_shelf() -> void:
+	var rid := current_room_id()
+	place_spots.clear()
+	for wall in 4:
+		for slot in Styles.slot_count(wall):
+			if Library.is_slot_free(rid, wall, slot):
+				place_spots.append({"wall": wall, "slot": slot})
+	if place_spots.is_empty():
+		hud.toast(tr("This room is full. Create a new room from the room menu."))
+		return
+	if mode == Mode.SHELF:
+		exit_shelf()
+	placing_shelf = true
+	place_index = 0
+	if ghost_shelf == null:
+		ghost_shelf = Shelf3D.new()
+		# Parented to the room so it is cleared along with everything else on a rebuild.
+		room3d.add_child(ghost_shelf)
+		ghost_shelf.setup_ghost(style)
+	hud.set_placing_shelf(true)
+	_show_place_spot(false)
+
+func place_step(delta: int) -> void:
+	if not placing_shelf or place_spots.is_empty():
+		return
+	place_index = wrapi(place_index + delta, 0, place_spots.size())
+	_show_place_spot(true)
+
+func _show_place_spot(animate: bool) -> void:
+	if ghost_shelf == null:
+		return
+	var s: Dictionary = place_spots[place_index]
+	var wall := int(s["wall"])
+	var t := Styles.shelf_transform(wall, int(s["slot"]))
+	ghost_shelf.transform = t
+	ghost_shelf.visible = true
+	# Turn the room view to look straight at the spot the ghost is standing on.
+	var dir := t.origin - ROOM_PIVOT
+	dir.y = 0.0
+	if dir.length() > 0.05:
+		yaw = atan2(-dir.x, -dir.z)
+	pitch = -0.02
+	if animate:
+		rig.go_to(_room_eye(), _room_basis(), ROOM_FOV, 0.35)
+	else:
+		rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+	# Anything this spot would displace goes invisible, so the cost is on screen.
+	var dropped := room3d.preview_hide(wall, int(s["slot"]))
+	var warn := ""
+	if dropped == "window":
+		warn = tr("Placing here removes the window")
+	elif dropped == "fireplace":
+		warn = tr("Placing here removes the fireplace")
+	hud.set_place_info(tr("%s wall · spot %d") % [tr(Styles.WALL_NAMES[wall]), int(s["slot"]) + 1],
+		tr("Spot %d of %d") % [place_index + 1, place_spots.size()], warn)
+
+func confirm_place_shelf() -> void:
+	if not placing_shelf or place_spots.is_empty():
+		return
+	var s: Dictionary = place_spots[place_index]
+	var wall := int(s["wall"])
+	var slot := int(s["slot"])
+	var rid := current_room_id()
+	# Cleared first: adding the shelf rebuilds the room and takes the ghost with it.
+	cancel_place_shelf()
+	var sid := Library.add_shelf(rid, wall, slot)
+	hud.toast(tr("Shelf added on the %s wall") % tr(Styles.WALL_NAMES[wall]).to_lower())
+	if sid != "":
+		enter_shelf_by_id(sid)
+
+func cancel_place_shelf() -> void:
+	if not placing_shelf:
+		return
+	placing_shelf = false
+	place_spots.clear()
+	if ghost_shelf != null:
+		ghost_shelf.queue_free()
+		ghost_shelf = null
+	if room3d != null:
+		room3d.preview_hide(-1, -1)
+	hud.set_placing_shelf(false)
 
 func _room_basis() -> Basis:
 	return Basis.from_euler(Vector3(pitch, yaw, 0))
@@ -508,6 +607,9 @@ func _on_tap(pos: Vector2) -> void:
 	if rig.moving:
 		return
 	if mode == Mode.ROOM:
+		# While choosing a spot, taps must not open a shelf or walk through a door.
+		if placing_shelf:
+			return
 		var col := _raycast_collider(pos)
 		var sh := room3d.shelf_by_body(col)
 		if sh:
@@ -617,14 +719,26 @@ func _begin_book_drag() -> void:
 	drag_fits = true
 	drag_over_tray = false
 	_last_preview = ""
+	# Distance from the eye to the shelf face, so a book held over the tray keeps a
+	# believable size instead of ballooning as it leaves the shelf.
+	var face := active_shelf.to_global(Vector3(0, Styles.SHELF_H * 0.5, active_shelf.spine_plane_z()))
+	_drag_depth = maxf(rig.cam.global_position.distance_to(face), 0.4)
 	hud.set_drag_tray(true)
 
 func _update_book_drag(pos: Vector2) -> void:
+	drag_over_tray = hud.tray_rect().has_point(pos)
 	var lift_z := active_shelf.spine_plane_z() + 0.12
 	var L = active_shelf.local_from_screen(rig.cam, pos, lift_z)
-	if L == null:
+	# Past the bottom of the case the shelf plane runs into the floor, so from there on
+	# the book is carried on the finger instead of being pinned to the plane.
+	if drag_over_tray or L == null or L.y < 0.02:
+		_carry_book(pos)
+		if _last_preview != "carry":
+			_last_preview = "carry"
+			drag_row = -1
+			active_shelf.layout(true, drag_book.book_id)
+		hud.set_tray_hover(drag_over_tray)
 		return
-	drag_over_tray = hud.tray_rect().has_point(pos)
 	var r := active_shelf.row_at_local_y(L.y)
 	var i := active_shelf.index_at_local_x(r, L.x, drag_book.book_id)
 	drag_row = r
@@ -633,13 +747,13 @@ func _update_book_drag(pos: Vector2) -> void:
 	var y: float = clamp(L.y - drag_book.dims.y * 0.35, -0.05, Styles.SHELF_H)
 	drag_book.position = Vector3(L.x, y, lift_z - drag_book.dims.z / 2.0)
 	drag_book.rotation = Vector3(0.0, 0.0, 0.05)
-	drag_book.scale = Vector3.ONE * (0.7 if drag_over_tray else 1.03)
-	var key := "%d:%d:%s:%s" % [r, i, drag_over_tray, drag_fits]
+	drag_book.scale = Vector3.ONE * 1.03
+	var key := "%d:%d:%s" % [r, i, drag_fits]
 	if key != _last_preview:
 		_last_preview = key
-		var gap_row := r if (drag_fits and not drag_over_tray) else -1
+		var gap_row := r if drag_fits else -1
 		active_shelf.layout(true, drag_book.book_id, gap_row, i, drag_book.shelf_width())
-		hud.set_tray_hover(drag_over_tray)
+		hud.set_tray_hover(false)
 
 func _end_book_drag(_pos: Vector2) -> void:
 	var id := drag_book.book_id
@@ -650,8 +764,12 @@ func _end_book_drag(_pos: Vector2) -> void:
 	hud.set_tray_hover(false)
 	hud.set_drag_tray(false)
 	if drag_over_tray:
+		# Taken off the shelf first, so the rebuild that follows leaves the node alone
+		# and it can finish its flight into the tray.
+		var flyer := active_shelf.release_node(id)
 		Library.to_tray(id)
 		hud.toast("Moved to the tray")
+		_fly_into_tray(flyer, id)
 	elif drag_fits and drag_row >= 0:
 		if not Library.place(id, sid, drag_row, drag_index):
 			active_shelf.layout(true)
@@ -660,6 +778,60 @@ func _end_book_drag(_pos: Vector2) -> void:
 		if not drag_fits:
 			hud.toast(tr("Not enough space on row %d") % Library.row_number(drag_row))
 	b.rotation = Vector3.ZERO
+
+## How far in front of the eye a carried book floats. Close enough to clear the room's
+## furniture, walls and floor at any zoom, so it can never sink out of sight.
+const CARRY_DEPTH := 0.55
+
+## Depth for a carried book, and the scale that keeps it looking the size it would be
+## back on the shelf. project_position pins the screen position whatever the depth, so
+## only the apparent size has to be corrected.
+func _carry_depth() -> float:
+	return minf(CARRY_DEPTH, _drag_depth * 0.6)
+
+func _carry_scale(factor: float) -> float:
+	return factor * _carry_depth() / maxf(_drag_depth, 0.01)
+
+## Hangs the book on the finger. Held above the tray bar, because the tray draws over the
+## 3D view and a book tracking the finger exactly would vanish behind it.
+func _carry_book(pos: Vector2) -> void:
+	var bar_top := hud.tray_rect().position.y
+	var hover := pos
+	if bar_top > 0.0:
+		hover.y = minf(pos.y, bar_top - 70.0)
+	drag_book.global_position = rig.cam.project_position(hover, _carry_depth())
+	drag_book.rotation = Vector3(0.0, 0.0, 0.12)
+	drag_book.scale = Vector3.ONE * _carry_scale(0.7)
+
+## Sends the released book on to its chip: it shrinks towards the tray, slips behind the
+## bar, and the chip grows in as it arrives, so the 3D book reads as becoming the 2D one.
+const TRAY_FLIGHT := 0.30
+
+func _fly_into_tray(b: Book3D, id: String) -> void:
+	if b == null:
+		return
+	# Reparented out of the shelf, keeping where it is on screen.
+	var here := b.global_transform
+	b.get_parent().remove_child(b)
+	add_child(b)
+	b.global_transform = here
+	# One frame so the tray has laid the new chip out and can say where it landed.
+	await get_tree().process_frame
+	if not is_instance_valid(b):
+		return
+	hud.pop_chip(id, TRAY_FLIGHT)
+	var target := hud.tray_chip_center(id)
+	if target == Vector2.ZERO:
+		b.queue_free()
+		return
+	# Same depth it was carried at, so it neither jumps nor sinks into the room on release.
+	var world := rig.cam.project_position(target, _carry_depth())
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw.tween_property(b, "global_position", world, TRAY_FLIGHT)
+	tw.parallel().tween_property(b, "scale", Vector3.ONE * _carry_scale(0.18), TRAY_FLIGHT)
+	tw.parallel().tween_property(b, "rotation", Vector3(0, 0, 0.5), TRAY_FLIGHT)
+	tw.tween_callback(b.queue_free)
 
 func _cancel_drag() -> void:
 	if drag_book == null:
@@ -689,6 +861,57 @@ func _run_shot() -> void:
 			hud.dialogs.open_book_detail(_first_book_id(first))
 		"detail_isbn":
 			hud.dialogs.open_book_detail(Library.sorted_book_ids("title", "Name of the Wind")[0])
+		"place":
+			begin_place_shelf()
+		"place_win":
+			# lands on the north wall centre slot, where the window stands
+			begin_place_shelf()
+			place_step(1)
+		"place_fire":
+			# steps round to the south wall centre slot, where the fireplace stands
+			begin_place_shelf()
+			for i in place_spots.size():
+				var sp: Dictionary = place_spots[place_index]
+				if int(sp["wall"]) == 2 and int(sp["slot"]) == Styles.center_slot(2):
+					break
+				place_step(1)
+		"place_go":
+			begin_place_shelf()
+			place_step(1)
+			confirm_place_shelf()
+		"place_cancel":
+			# empty tray, so the bottom bar must stay hidden once placement backs out
+			Library.get_tray().clear()
+			hud.refresh_tray()
+			begin_place_shelf()
+			place_step(1)
+			cancel_place_shelf()
+		"tag":
+			var first: Dictionary = current_room()["shelves"][0]
+			Library.set_shelf_tag(str(first["id"]), true, "brass")
+			enter_shelf(room3d.shelves[str(first["id"])])
+		"tag2":
+			var sh: Array = current_room()["shelves"]
+			for i in mini(sh.size(), 4):
+				Library.set_shelf_tag(str(sh[i]["id"]), true, ["brass", "wood", "slate", "paper"][i])
+		"sorted":
+			var first: Dictionary = current_room()["shelves"][0]
+			var fsid := str(first["id"])
+			for key in ["author", "title", "genre"]:
+				var spill := Library.sort_shelf(fsid, key)
+				print("SORT --- by %s (spilled %d)" % [key, spill])
+				var ss := Library.get_shelf(fsid)
+				for ri in ss["rows"].size():
+					var line: Array = []
+					for id in ss["rows"][ri]:
+						var bb := Library.get_book(id)
+						var g: Array = bb.get("genres", [])
+						var tag: String = Library.author_line(bb) if key == "author" else (str(bb.get("title", "")) if key == "title" else (str(g[0]) if not g.is_empty() else "-"))
+						line.append(tag.substr(0, 16))
+					if not line.is_empty():
+						print("SORT   row %d: %s" % [ri, " | ".join(PackedStringArray(line))])
+			Library.sort_shelf(fsid, "author")
+			enter_shelf(room3d.shelves[fsid])
 		"add":
 			hud.dialogs.open_add_book()
 		"import":
@@ -840,8 +1063,26 @@ func _run_shot() -> void:
 			for i in 70:
 				await get_tree().process_frame
 			await _scripted_drag(shot_mode == "dragtray")
+		"trayfly", "trayfly_out":
+			# caught mid-flight, while the book is still on its way to the chip
+			var first: Dictionary = current_room()["shelves"][0]
+			enter_shelf(room3d.shelves[first["id"]])
+			for i in 70:
+				await get_tree().process_frame
+			if shot_mode == "trayfly_out":
+				_zoom(0.45)
+				for i in 30:
+					await get_tree().process_frame
+			await _scripted_drag(true)
+			for i in 8:
+				await get_tree().process_frame
+			_save_shot()
+			return
 	for i in 70:
 		await get_tree().process_frame
+	_save_shot()
+
+func _save_shot() -> void:
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(shot_path)
 	print("SHOT_SAVED ", shot_path)

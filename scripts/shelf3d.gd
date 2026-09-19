@@ -19,6 +19,8 @@ var ROWS: int = Library.SHELF_ROWS
 var shelf_id := ""
 var shelf: Dictionary = {}
 var style: Dictionary = {}
+## Preview case shown while choosing a spot: see-through, no books, no plants, no picking.
+var is_ghost := false
 var books: Dictionary = {}     # id -> Book3D
 var rows_y: Array = []         # standing height per row
 var row_h := 0.0
@@ -38,6 +40,17 @@ func setup(s: Dictionary, st: Dictionary) -> void:
 	_build_case()
 	rebuild_books(false)
 
+## Builds just the case, see-through, for the placement preview.
+func setup_ghost(st: Dictionary) -> void:
+	is_ghost = true
+	shelf = {"id": "", "rows": []}
+	shelf_id = ""
+	style = st
+	if case_root == null:
+		case_root = Node3D.new()
+		add_child(case_root)
+	_build_case()
+
 func refresh_data() -> void:
 	shelf = Library.get_shelf(shelf_id)
 
@@ -55,7 +68,9 @@ func _box(size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
 func _build_case() -> void:
 	for c in case_root.get_children():
 		c.queue_free()
-	var mat := Materials.shelf_wood(style)
+	var mat: Material = Materials.shelf_wood(style)
+	if is_ghost:
+		mat = Materials.ghost(Color(0.55, 0.78, 1.0), 0.40)
 	_box(Vector3(SIDE_T, H, D), Vector3(-W / 2.0 + SIDE_T / 2.0, H / 2.0, 0), mat)
 	_box(Vector3(SIDE_T, H, D), Vector3(W / 2.0 - SIDE_T / 2.0, H / 2.0, 0), mat)
 	_box(Vector3(W, TOP_T, D), Vector3(0, H - TOP_T / 2.0, 0), mat)
@@ -71,6 +86,9 @@ func _build_case() -> void:
 			rows_y.append(band_bottom + BOARD_T)
 		else:
 			rows_y.append(band_bottom)
+	if is_ghost:
+		return
+	_build_name_tag()
 	_build_top_plants()
 	# picking body
 	if body == null:
@@ -86,6 +104,39 @@ func _build_case() -> void:
 		add_child(body)
 	body.set_meta("shelf_id", shelf_id)
 
+## Optional name plate screwed to the front of the top board, carrying the shelf's name.
+## Off by default; the look comes from Library.TAG_STYLES.
+func _build_name_tag() -> void:
+	if not bool(shelf.get("tag_on", false)):
+		return
+	var title := str(shelf.get("name", "")).strip_edges()
+	if title == "":
+		return
+	var spec: Dictionary = Library.TAG_STYLES[Library.shelf_tag_style(shelf)]
+	var plate_w: float = minf(W * 0.46, 0.40)
+	var plate_h := 0.055
+	var y := H - TOP_T - plate_h / 2.0 - 0.006
+	var z := D / 2.0 + 0.004
+	var plate := Materials.std(Color.html(str(spec["plate"])), float(spec["rough"]), float(spec["metallic"]))
+	_box(Vector3(plate_w, plate_h, 0.008), Vector3(0, y, z), plate)
+	var lbl := Label3D.new()
+	lbl.font = Book3D._font("res://fonts/NotoSerif-Bold.ttf" if bool(spec["serif"]) else "res://fonts/NotoSans-Bold.ttf")
+	lbl.pixel_size = 0.0002
+	# Shrunk to fit the plate rather than spilling off its ends.
+	var want := int(plate_h * 0.52 / lbl.pixel_size)
+	var w100 := lbl.font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 100).x
+	if w100 > 0.0:
+		want = mini(want, int(plate_w * 0.86 / (w100 * lbl.pixel_size) * 100.0))
+	lbl.font_size = maxi(want, 14)
+	lbl.text = title
+	lbl.modulate = Color.html(str(spec["ink"]))
+	lbl.position = Vector3(0, y, z + 0.005)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.alpha_cut = Label3D.ALPHA_CUT_DISCARD
+	lbl.render_priority = 2
+	case_root.add_child(lbl)
+
 ## One or two potted plants stand on top of the case. The seed comes from the shelf id,
 ## so a shelf keeps the same plants in the same spots across rebuilds and sessions.
 func _build_top_plants() -> void:
@@ -99,11 +150,25 @@ func _build_top_plants() -> void:
 		spots[j] = tmp
 	var count := 1 if rng.randf() < 0.55 else 2
 	for i in count:
-		var p := Decor.shelf_plant(style, rng)
+		var kind := rng.randi() % 3
+		var z := rng.randf_range(-0.03, 0.03)
+		var yaw := rng.randf() * TAU
+		var face := 0.0
+		if kind == 1:
+			# Trailing ivy: stand it near the front edge facing the room, so the vines
+			# spill down in front of the case instead of through the top board. Its
+			# facing goes into the fan, not onto the node, so the vines know which way
+			# the edge actually is.
+			z = D / 2.0 - 0.085
+			yaw = 0.0
+			face = rng.randf_range(-0.3, 0.3)
+		var scl := rng.randf_range(0.92, 1.18)
+		# Clearance is in the plant's own space, so undo the scale it is about to get.
+		var p := Decor.shelf_plant(style, rng, kind, (D / 2.0 - z) / scl, face)
 		case_root.add_child(p)
-		p.position = Vector3(float(spots[i]) + rng.randf_range(-0.05, 0.05), H, rng.randf_range(-0.03, 0.03))
-		p.rotation.y = rng.randf() * TAU
-		p.scale = Vector3.ONE * rng.randf_range(0.92, 1.18)
+		p.position = Vector3(float(spots[i]) + rng.randf_range(-0.05, 0.05), H, z)
+		p.rotation.y = yaw
+		p.scale = Vector3.ONE * scl
 
 # ---------------------------------------------------------------- books
 
@@ -131,6 +196,16 @@ func rebuild_books(animate := true) -> void:
 		else:
 			books[id].setup(data)
 	layout(animate)
+
+## Hands a book node to the caller and forgets it, so the next rebuild will not free it.
+## Used for the flight into the tray, which outlives the book's place on the shelf.
+func release_node(id: String) -> Book3D:
+	var b: Book3D = books.get(id)
+	if b == null:
+		return null
+	b.kill_tween()
+	books.erase(id)
+	return b
 
 func refresh_book(id: String) -> void:
 	if books.has(id):

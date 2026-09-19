@@ -19,6 +19,25 @@ const PUB_RUN := 0.12
 const SANS_KEYS := ["non-fiction", "nonfiction", "science", "technolog", "business", "self-help",
 	"computer", "programming", "economic", "politic", "travel", "cook", "health", "design", "reference"]
 
+## Printer's devices for the foot of the spine. These are generic marks, not real
+## publisher logos: no catalogue serves logo artwork, and the real ones are trademarks.
+## A publisher always gets the same mark, so a run of one imprint still reads as a set.
+const IMPRINTS := [
+	'<circle cx="32" cy="32" r="21" fill="none" stroke="#fff" stroke-width="5"/>',
+	'<path d="M32 9 55 32 32 55 9 32Z" fill="none" stroke="#fff" stroke-width="5"/>',
+	'<path d="M32 10 56 52H8Z" fill="#fff"/>',
+	'<rect x="11" y="11" width="42" height="42" fill="none" stroke="#fff" stroke-width="5"/><circle cx="32" cy="32" r="7" fill="#fff"/>',
+	'<path d="M32 8a24 24 0 100 48 19 19 0 010-48Z" fill="#fff"/>',
+	'<rect x="10" y="14" width="44" height="7" fill="#fff"/><rect x="10" y="29" width="44" height="7" fill="#fff"/><rect x="10" y="44" width="44" height="7" fill="#fff"/>',
+	'<path d="M32 6 38 26 58 32 38 38 32 58 26 38 6 32 26 26Z" fill="#fff"/>',
+	'<ellipse cx="32" cy="32" rx="13" ry="24" fill="none" stroke="#fff" stroke-width="5"/><rect x="29" y="8" width="6" height="48" fill="#fff"/>',
+]
+## Words that differ between editions of the same imprint and must not split it in two.
+const PUB_NOISE := ["ltd", "limited", "inc", "llc", "gmbh", "co", "company", "verlag", "books",
+	"book", "publishing", "publishers", "publisher", "press", "group", "the", "and", "editions"]
+
+static var _imprint_tex: Dictionary = {}
+
 static var _fonts: Dictionary = {}
 static var _pages_mat: StandardMaterial3D
 
@@ -38,7 +57,7 @@ var mesh_inst: MeshInstance3D
 var cover_quad: MeshInstance3D
 var label: Label3D
 var author_label: Label3D
-var pub_label: Label3D
+var pub_mark: Sprite3D
 var cover_label: Label3D
 var _has_cover := false
 
@@ -51,6 +70,27 @@ static func _pages() -> StandardMaterial3D:
 	if _pages_mat == null:
 		_pages_mat = Materials.std(Color(0.93, 0.89, 0.80), 0.95)
 	return _pages_mat
+
+## Strips edition noise so "Tor" and "Tor Books", or "Hodder Paperback" and
+## "Hodder & Stoughton Ltd", land on the same mark.
+static func _pub_key(pub: String) -> String:
+	var out := ""
+	for word in pub.to_lower().replace("&", " ").replace(",", " ").replace(".", " ").split(" ", false):
+		var w := str(word).strip_edges()
+		if w == "" or PUB_NOISE.has(w):
+			continue
+		out += w
+	return out
+
+## Rasterised once and shared by every book, so a shelf costs one texture per mark.
+static func _imprint(idx: int) -> Texture2D:
+	if not _imprint_tex.has(idx):
+		var svg := '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">%s</svg>' % IMPRINTS[idx]
+		var img := Image.new()
+		if img.load_svg_from_string(svg, 1.0) != OK:
+			return null
+		_imprint_tex[idx] = ImageTexture.create_from_image(img)
+	return _imprint_tex[idx]
 
 ## Serif unless the genres say contemporary non-fiction.
 static func _serif(b: Dictionary) -> bool:
@@ -77,8 +117,8 @@ func setup(b: Dictionary) -> void:
 		body.add_child(label)
 		author_label = Label3D.new()
 		body.add_child(author_label)
-		pub_label = Label3D.new()
-		body.add_child(pub_label)
+		pub_mark = Sprite3D.new()
+		body.add_child(pub_mark)
 		cover_quad = MeshInstance3D.new()
 		body.add_child(cover_quad)
 		cover_label = Label3D.new()
@@ -207,27 +247,22 @@ func _layout_spine(b: Dictionary, title_font: Font, body_font: Font, foil: Color
 	author_label.render_priority = 1
 	author_label.visible = author != ""
 
-	# --- imprint at the base, only where there is room for it ---
-	var pub := str(b.get("publisher", "")).strip_edges().to_upper()
-	var p_run := dims.y * PUB_RUN
-	var show_pub := pub != "" and dims.x >= 0.013
+	# --- imprint device at the base, only where there is room for it ---
+	var key := _pub_key(str(b.get("publisher", "")))
+	var show_pub := key != "" and dims.x >= 0.013
 	if show_pub:
-		var p_size := mini(maxi(int(size * 0.42), 14), _fit_size(body_font, pub, p_run, 1))
-		p_size = maxi(p_size, 11)
-		pub_label.font = body_font
-		pub_label.pixel_size = PIX
-		pub_label.font_size = p_size
-		pub_label.text = _ellipsize(body_font, pub, p_size, p_run * 0.96)
-		pub_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		pub_label.modulate = Color(text_col, alpha * 0.72)
-		pub_label.outline_size = 0
-		pub_label.position = Vector3(0, dims.y * PUB_Y, z)
-		pub_label.rotation = Vector3(0, 0, spin)
-		pub_label.alpha_cut = Label3D.ALPHA_CUT_DISABLED if ghost else Label3D.ALPHA_CUT_DISCARD
-		pub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		pub_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		pub_label.render_priority = 1
-	pub_label.visible = show_pub
+		var tex := _imprint(absi(hash(key)) % IMPRINTS.size())
+		show_pub = tex != null
+		if tex != null:
+			# Sized off the spine thickness, since that is the narrow axis it has to sit in.
+			var mark: float = minf(dims.x * 0.52, dims.y * PUB_RUN * 0.8)
+			pub_mark.texture = tex
+			pub_mark.pixel_size = mark / float(tex.get_height())
+			pub_mark.modulate = Color(text_col, alpha * 0.6)
+			pub_mark.position = Vector3(0, dims.y * PUB_Y, z)
+			pub_mark.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED if ghost else SpriteBase3D.ALPHA_CUT_DISCARD
+			pub_mark.render_priority = 1
+	pub_mark.visible = show_pub
 
 ## Largest font size at which `text` fits `lines` rows inside `avail` metres.
 func _fit_size(f: Font, text: String, avail: float, lines: int) -> int:

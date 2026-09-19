@@ -10,6 +10,9 @@ var table: Node3D
 var archive: Node3D
 var doors: Dictionary = {}   # target room id -> door Node3D
 var decor_nodes: Array[Node3D] = []   # furniture that may be faded out of the way
+## Decor standing on a wall slot, which a shelf taking that slot would displace.
+## Kept so the placement preview can show what a spot costs. [{node, wall, slot, what}]
+var slot_decor: Array = []
 var _decor_boxes: Array[AABB] = []
 var _fade_args := []   # [eye, shelf, amount] of the fade in force, so rebuilt props match
 
@@ -86,12 +89,13 @@ func _build_shell() -> void:
 	_box(Vector3(0.1, H + 0.2, D + 0.4), Vector3(-W / 2.0 - 0.05, H / 2.0, 0), wall_mat)
 	# baseboards and crown trim
 	var trim := Materials.std(style.get("trim", Color(0.3, 0.2, 0.1)), 0.5)
-	for y in [0.05, H - 0.04]:
-		var th := 0.1 if y < 1.0 else 0.08
-		_box(Vector3(W, th, 0.03), Vector3(0, y, -D / 2.0 + 0.015), trim)
-		_box(Vector3(W, th, 0.03), Vector3(0, y, D / 2.0 - 0.015), trim)
-		_box(Vector3(0.03, th, D), Vector3(W / 2.0 - 0.015, y, 0), trim)
-		_box(Vector3(0.03, th, D), Vector3(-W / 2.0 + 0.015, y, 0), trim)
+	var skirt := Styles.SKIRT_T
+	for y in [Styles.SKIRT_H / 2.0, H - 0.04]:
+		var th := Styles.SKIRT_H if y < 1.0 else 0.08
+		_box(Vector3(W, th, skirt), Vector3(0, y, -D / 2.0 + skirt / 2.0), trim)
+		_box(Vector3(W, th, skirt), Vector3(0, y, D / 2.0 - skirt / 2.0), trim)
+		_box(Vector3(skirt, th, D), Vector3(W / 2.0 - skirt / 2.0, y, 0), trim)
+		_box(Vector3(skirt, th, D), Vector3(-W / 2.0 + skirt / 2.0, y, 0), trim)
 
 func _build_lights() -> void:
 	var sun := DirectionalLight3D.new()
@@ -132,6 +136,20 @@ func door_by_body(body: Object) -> String:
 		return ""
 	return str(body.get_meta("door_to"))
 
+## Hides whatever a shelf on this slot would displace, so the placement preview shows
+## the cost of the spot. Pass (-1, -1) to bring everything back. Returns what it hid.
+func preview_hide(wall: int, slot: int) -> String:
+	var hidden := ""
+	for d in slot_decor:
+		var n: Node3D = d["node"]
+		if not is_instance_valid(n):
+			continue
+		var on_spot: bool = int(d["wall"]) == wall and int(d["slot"]) == slot
+		n.visible = not on_spot
+		if on_spot:
+			hidden = str(d["what"])
+	return hidden
+
 func occupied(wall: int, slot: int) -> bool:
 	for s in room.get("shelves", []):
 		if int(s["wall"]) == wall and int(s["slot"]) == slot:
@@ -139,6 +157,7 @@ func occupied(wall: int, slot: int) -> bool:
 	return false
 
 func _build_decor() -> void:
+	slot_decor.clear()
 	var first := get_child_count()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(room.get("id", "")) + str(style.get("name", "")))
@@ -158,6 +177,7 @@ func _build_decor() -> void:
 					add_child(f)
 					f.transform = Styles.wall_transform(2, 0.0, 0.5)
 					has_fireplace = true
+					slot_decor.append({"node": f, "wall": 2, "slot": cs, "what": "fireplace"})
 			"window":
 				# the window sits on the north wall unless a door took it, then on a door-free side wall
 				var ww: int = Styles.window_wall(room)
@@ -166,6 +186,7 @@ func _build_decor() -> void:
 					var w := Decor.window(style)
 					add_child(w)
 					w.transform = Styles.wall_transform(ww, 0.0, 0.1)
+					slot_decor.append({"node": w, "wall": ww, "slot": cs, "what": "window"})
 			"rug":
 				var r := Decor.rug(style)
 				add_child(r)

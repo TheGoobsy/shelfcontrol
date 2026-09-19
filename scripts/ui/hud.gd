@@ -15,6 +15,10 @@ signal title_pressed()
 signal settings_pressed()
 signal books_pressed()
 signal edit_pressed()
+signal place_prev_pressed()
+signal place_next_pressed()
+signal place_confirm_pressed()
+signal place_cancel_pressed()
 
 var main: Node
 var style: Dictionary = {}
@@ -51,6 +55,12 @@ var sans_bold: Font
 var serif_bold: Font
 var mode_shelf := false
 var placing_id := ""
+var placing_shelf := false
+var place_panel: PanelContainer
+var place_where: Label
+var place_count: Label
+var place_warn: Label
+var _has_multiple := false
 var _toast_tween: Tween
 var _drag_tray := false
 
@@ -328,6 +338,11 @@ func apply_style(st: Dictionary) -> void:
 	th.set_color("icon_pressed_color", "IconButton", f)
 	th.set_color("icon_focus_color", "IconButton", f)
 	root.theme = th
+	# The placement bar sits over the open room, including the bright rug, so it gets an
+	# opaque back of its own rather than the translucent card the tray can afford.
+	if place_panel != null:
+		var pb := bg()
+		place_panel.add_theme_stylebox_override("panel", _flat(Color(pb.r, pb.g, pb.b, 0.97), 24, Vector2(24, 18)))
 	refresh_tray()
 	_layout()
 
@@ -358,6 +373,8 @@ func _layout() -> void:
 	top_next.size = Vector2(arrow_w, bar_h)
 	bottom_bar.offset_bottom = -(bottom_inset + 24)
 	bottom_bar.offset_right = -(24 + 108 + 16) if mode_shelf else -24
+	if place_panel != null:
+		place_panel.offset_bottom = -(bottom_inset + 24)
 	back_btn.offset_bottom = -(bottom_inset + 24)
 	toast_panel.offset_top = top_inset + 190
 	side_box.offset_top = top_inset + 24 + top_bar.get_combined_minimum_size().y + 18
@@ -510,13 +527,88 @@ func _build_bottom() -> void:
 	back_btn.offset_right = -24
 	back_btn.pressed.connect(func(): back_pressed.emit())
 	root.add_child(back_btn)
+	_build_place_bar()
+
+## Bar shown while a see-through shelf is standing on a candidate spot: step through the
+## free spots with the arrows, then commit. Sits where the tray normally is.
+func _build_place_bar() -> void:
+	place_panel = PanelContainer.new()
+	place_panel.theme_type_variation = "Card"
+	place_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	place_panel.offset_left = 24
+	place_panel.offset_right = -24
+	place_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	place_panel.visible = false
+	root.add_child(place_panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	place_panel.add_child(v)
+	place_where = Label.new()
+	place_where.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(place_where)
+	place_count = Label.new()
+	place_count.theme_type_variation = "SmallLabel"
+	place_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(place_count)
+	place_warn = Label.new()
+	place_warn.theme_type_variation = "SmallLabel"
+	place_warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	place_warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	place_warn.visible = false
+	v.add_child(place_warn)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	v.add_child(h)
+	var prev := _icon_button("res://icons/chevron_left.svg", 44)
+	prev.custom_minimum_size = Vector2(110, 96)
+	prev.tooltip_text = tr("Previous spot")
+	prev.pressed.connect(func(): place_prev_pressed.emit())
+	h.add_child(prev)
+	var place := button(tr("Place shelf"), "AccentButton", 96)
+	place.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	place.pressed.connect(func(): place_confirm_pressed.emit())
+	h.add_child(place)
+	var nxt := _icon_button("res://icons/chevron_right.svg", 44)
+	nxt.custom_minimum_size = Vector2(110, 96)
+	nxt.tooltip_text = tr("Next spot")
+	nxt.pressed.connect(func(): place_next_pressed.emit())
+	h.add_child(nxt)
+	var cancel := button(tr("Cancel"), "GhostButton", 72)
+	cancel.pressed.connect(func(): place_cancel_pressed.emit())
+	v.add_child(cancel)
+
+func set_placing_shelf(on: bool) -> void:
+	placing_shelf = on
+	place_panel.visible = on
+	# refresh_tray owns the bottom bar, so it has to re-run to pick the mode up.
+	refresh_tray()
+	_rebuild_actions()
+
+func set_place_info(where: String, count: String, warn := "") -> void:
+	place_where.text = where
+	place_count.text = count
+	place_warn.text = warn
+	place_warn.visible = warn != ""
+	place_warn.add_theme_color_override("font_color", accent())
 
 func _rebuild_actions() -> void:
-	back_btn.visible = mode_shelf
+	# While a spot is being chosen the placement bar is the only chrome on screen: the
+	# room title, its arrows and the side actions would all navigate away mid-placement.
+	var idle := not placing_shelf
+	back_btn.visible = mode_shelf and idle
+	# The bottom bar is left to refresh_tray, which hides it when there is nothing to
+	# show. Forcing it visible here brought back an empty bar after cancelling.
+	side_box.visible = idle
+	top_bar.visible = idle
+	top_prev.visible = idle
+	top_next.visible = idle
+	prev_btn.visible = _has_multiple and idle
+	next_btn.visible = _has_multiple and idle
 	_layout()
 
 func set_room_mode(room_name: String, subtitle: String, has_multiple: bool) -> void:
 	mode_shelf = false
+	_has_multiple = has_multiple
 	title_lbl.text = room_name
 	sub_lbl.text = subtitle
 	prev_btn.visible = has_multiple
@@ -528,6 +620,7 @@ func set_room_mode(room_name: String, subtitle: String, has_multiple: bool) -> v
 
 func set_shelf_mode(shelf_name: String, subtitle: String, has_multiple: bool) -> void:
 	mode_shelf = true
+	_has_multiple = has_multiple
 	title_lbl.text = shelf_name
 	sub_lbl.text = subtitle
 	prev_btn.visible = has_multiple
@@ -551,7 +644,7 @@ func refresh_tray() -> void:
 		if b.is_empty():
 			continue
 		tray_box.add_child(_make_chip(b, id == placing_id))
-	tray_panel.visible = _drag_tray or mode_shelf or not ids.is_empty()
+	tray_panel.visible = not placing_shelf and (_drag_tray or mode_shelf or not ids.is_empty())
 	bottom_bar.visible = tray_panel.visible
 	# with no books the bar is just the hint; match the floating back button's height
 	bottom_bar.custom_minimum_size = Vector2(0, 108 if ids.is_empty() else 0)
@@ -623,8 +716,40 @@ func _make_chip(b: Dictionary, selected: bool) -> Control:
 		btn.add_theme_stylebox_override("hover", _flat(Color(a.r, a.g, a.b, 0.4), 16, Vector2(0, 0), a, 5))
 		btn.add_theme_stylebox_override("pressed", _flat(Color(a.r, a.g, a.b, 0.5), 16, Vector2(0, 0), a, 5))
 	var id := str(b["id"])
+	btn.set_meta("book_id", id)
 	btn.pressed.connect(func(): tray_chip_pressed.emit(id))
 	return btn
+
+func _chip_for(id: String) -> Control:
+	for c in tray_box.get_children():
+		if c is Control and c.has_meta("book_id") and str(c.get_meta("book_id")) == id:
+			return c
+	return null
+
+## Where a book flying into the tray should land: the middle of its own chip once the
+## tray has laid out, or the near end of the tray until then.
+func tray_chip_center(id: String) -> Vector2:
+	var c := _chip_for(id)
+	if c != null and c.size.x > 1.0:
+		return c.get_global_rect().get_center()
+	var r := tray_rect()
+	if r.size.x <= 0.0:
+		return Vector2.ZERO
+	return Vector2(r.position.x + 90.0, r.get_center().y)
+
+## Grows the chip in as the 3D book reaches it, so the book appears to become the chip.
+func pop_chip(id: String, duration := 0.3) -> void:
+	var c := _chip_for(id)
+	if c == null:
+		return
+	c.pivot_offset = c.size / 2.0
+	c.scale = Vector2(0.25, 0.25)
+	c.modulate.a = 0.0
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(duration * 0.5)
+	tw.tween_property(c, "scale", Vector2.ONE, duration * 0.55)
+	tw.parallel().tween_property(c, "modulate:a", 1.0, duration * 0.35)
 
 func set_placing(id: String) -> void:
 	placing_id = id

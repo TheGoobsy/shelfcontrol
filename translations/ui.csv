@@ -20,6 +20,7 @@ keys,en,de
 1 cover turned out,1 cover turned out,1 Cover nach vorne gedreht
 1 result · tap Add,1 result · tap Add,1 Treffer · tippe Hinzufügen
 1 shelf,1 shelf,1 Regal
+A small plate on the front of the case carrying this shelf's name.,A small plate on the front of the case carrying this shelf's name.,Ein kleines Schild vorne am Regal mit dem Namen dieses Regals.
 Add,Add,Hinzufügen
 Add a book,Add a book,Buch hinzufügen
 Add a shelf,Add a shelf,Regal hinzufügen
@@ -46,6 +47,7 @@ Back to room,Back to room,Zurück zum Raum
 Bedroom,Bedroom,Schlafzimmer
 Book,Book,Buch
 Books,Books,Bücher
+Brass,Brass,Messing
 Camera,Camera,Kamera
 Cancel,Cancel,Abbrechen
 "Candelabras, a lectern with an open tome, a crystal ball and a candle chandelier.","Candelabras, a lectern with an open tome, a crystal ball and a candle chandelier.","Kandelaber, ein Lesepult mit aufgeschlagenem Folianten, eine Kristallkugel und ein Kerzenleuchter."
@@ -86,9 +88,11 @@ Fetching covers… %d / %d,Fetching covers… %d / %d,Cover werden geladen… %d
 "Filter by title, author, genre, tag…","Filter by title, author, genre, tag…","Nach Titel, Autor, Genre, Tag filtern…"
 Finished reading,Finished reading,Fertig gelesen
 Furniture,Furniture,Einrichtung
+Genre,Genre,Genre
 Genres & tags,Genres & tags,Genres & Tags
 Google Books API key (optional),Google Books API key (optional),Google-Books-API-Schlüssel (optional)
 "Green wallpaper, walnut panelling, candlelight.","Green wallpaper, walnut panelling, candlelight.","Grüne Tapete, Nussbaumvertäfelung, Kerzenlicht."
+Hidden,Hidden,Versteckt
 Import from Goodreads,Import from Goodreads,Aus Goodreads importieren
 Import pasted text,Import pasted text,Eingefügten Text importieren
 Imported %d books,Imported %d books,%d Bücher importiert
@@ -97,10 +101,28 @@ Importing… %d books,Importing… %d books,Importiere… %d Bücher
 In library,In library,Vorhanden
 In the archive box,In the archive box,In der Archivkiste
 Invert horizontal look,Invert horizontal look,Horizontal umkehren
+Material,Material,Material
+Name tag,Name tag,Namensschild
+Paper,Paper,Papier
 "Room view: swipe right to turn left, like grabbing the room.","Room view: swipe right to turn left, like grabbing the room.","Raumansicht: nach rechts wischen dreht nach links, als würdest du den Raum greifen."
 Invert vertical look,Invert vertical look,Vertikal umkehren
+Next spot,Next spot,Nächster Platz
+Place shelf,Place shelf,Regal hier aufstellen
+Placing here removes the fireplace,Placing here removes the fireplace,Hier aufgestellt verschwindet der Kamin
+Placing here removes the window,Placing here removes the window,Hier aufgestellt verschwindet das Fenster
+Previous spot,Previous spot,Vorheriger Platz
 Room view: swipe down to look up.,Room view: swipe down to look up.,Raumansicht: nach unten wischen schaut nach oben.
 Invert shelf panning,Invert shelf panning,Regal-Schwenk umkehren
+Shelf sorted by %s,Shelf sorted by %s,Regal sortiert nach %s
+Shown,Shown,Sichtbar
+Silver,Silver,Silber
+Slate,Slate,Schiefer
+Sort books,Sort books,Bücher sortieren
+Sort this shelf,Sort this shelf,Dieses Regal sortieren
+Sorted · %d books did not fit and went to the tray,Sorted · %d books did not fit and went to the tray,Sortiert · %d Bücher passten nicht und liegen im Fach
+Spot %d of %d,Spot %d of %d,Platz %d von %d
+"The books are re-ordered and the rows filled again from the top. A book that will not fit the row it lands on starts the next one.","The books are re-ordered and the rows filled again from the top. A book that will not fit the row it lands on starts the next one.","Die Bücher werden neu geordnet und die Reihen von oben neu gefüllt. Ein Buch, das in seine Reihe nicht passt, beginnt die nächste."
+Wood,Wood,Holz
 Zoomed-in shelf: swipe moves the camera instead of the shelf.,Zoomed-in shelf: swipe moves the camera instead of the shelf.,Im Regal: Wischen bewegt die Kamera statt des Regals.
 Spine titles read top to bottom,Spine titles read top to bottom,Rückentitel von oben nach unten
 "Off: titles read bottom to top, as on many European books.","Off: titles read bottom to top, as on many European books.","Aus: Titel laufen von unten nach oben, wie bei vielen europäischen Büchern."
