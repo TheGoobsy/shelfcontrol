@@ -17,6 +17,7 @@ signal books_pressed()
 signal edit_pressed()
 signal edit_room_pressed()
 signal edit_view_pressed()
+signal plan_band_changed()
 signal edit_done_pressed()
 signal furniture_picked(kind: String)
 signal furniture_rotate_pressed()
@@ -367,9 +368,14 @@ func apply_style(st: Dictionary) -> void:
 	root.theme = th
 	# The placement bar sits over the open room, including the bright rug, so it gets an
 	# opaque back of its own rather than the translucent card the tray can afford.
+	var solid := bg()
+	var solid_box := _flat(Color(solid.r, solid.g, solid.b, 0.97), 24, Vector2(24, 18))
 	if place_panel != null:
-		var pb := bg()
-		place_panel.add_theme_stylebox_override("panel", _flat(Color(pb.r, pb.g, pb.b, 0.97), 24, Vector2(24, 18)))
+		place_panel.add_theme_stylebox_override("panel", solid_box)
+	# the inventory stands over the room itself in room view, where a translucent card
+	# leaves the pieces to be read against the floorboards
+	if edit_panel != null:
+		edit_panel.add_theme_stylebox_override("panel", solid_box)
 	refresh_tray()
 	_layout()
 
@@ -387,6 +393,7 @@ func _layout() -> void:
 		top_inset = maxf(0.0, float(safe.position.y)) * scale_y
 		bottom_inset = maxf(0.0, float(win.y - safe.end.y)) * scale_y
 	_bottom_inset = bottom_inset
+	_top_inset = top_inset
 	top_bar.offset_top = top_inset + 24
 	top_bar.offset_bottom = top_inset + 24
 	# arrows are panels of the same height as the title bar, standing beside it
@@ -407,6 +414,31 @@ func _layout() -> void:
 	back_btn.offset_bottom = -(bottom_inset + 24)
 	toast_panel.offset_top = top_inset + 190
 	side_box.offset_top = top_inset + 24 + top_bar.get_combined_minimum_size().y + 18
+	plan_band_changed.emit()
+
+## The strip of screen the floor plan has to itself: under the title bar, over the
+## editing bar. The plan is framed to this, so the whole room is on screen whatever
+## shape the phone is and whatever the bars take.
+##
+## The bar is measured at its tallest — the inventory open — even while a piece is in
+## hand and the shorter place row is showing, so the map does not jump a size every time
+## something is picked up.
+##
+## Both bars are measured by what they actually cover, not by what they ask for: a label
+## that wraps reports a wild height until it has been given its width, and the plan would
+## otherwise be framed around a bar the size of the screen.
+func plan_band() -> Vector2:
+	var h: float = get_viewport().get_visible_rect().size.y
+	var top := _top_inset + 24.0 + _height_of(top_bar) + 18.0
+	var bar := edit_panel.size.y
+	if bar > 1.0 and edit_browse.visible:
+		_plan_bar_h = bar
+	bar = maxf(bar, _plan_bar_h)
+	return Vector2(top, maxf(top, h - (_bottom_inset + 24.0 + bar + 18.0)))
+
+## What a bar covers on screen, falling back to what it asks for before it is laid out.
+func _height_of(c: Control) -> float:
+	return c.size.y if c.size.y > 1.0 else c.get_combined_minimum_size().y
 
 func _build_top() -> void:
 	top_bar = PanelContainer.new()
@@ -545,8 +577,10 @@ func _build_bottom() -> void:
 	tray_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	tray_scroll.custom_minimum_size = Vector2(0, 200)
 	tv.add_child(tray_scroll)
+	watch_scroll(tray_scroll)
 	tray_box = HBoxContainer.new()
 	tray_box.add_theme_constant_override("separation", 12)
+	tray_box.mouse_filter = Control.MOUSE_FILTER_PASS
 	tray_scroll.add_child(tray_box)
 	back_btn = _icon_button("res://icons/back.svg", 52)
 	back_btn.theme_type_variation = "AccentIconButton"
@@ -619,6 +653,8 @@ func _build_edit_bar() -> void:
 	edit_panel.offset_right = -24
 	edit_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	edit_panel.visible = false
+	# the plan is framed around this bar, so a change of height reframes it
+	edit_panel.resized.connect(func(): plan_band_changed.emit())
 	root.add_child(edit_panel)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
@@ -682,10 +718,48 @@ func _scroller(parent: Control, height: float) -> HBoxContainer:
 	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.custom_minimum_size = Vector2(0, height)
 	parent.add_child(sc)
+	watch_scroll(sc)
 	var box := HBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
 	sc.add_child(box)
 	return box
+
+## A finger laid on a button is a press the button keeps to itself, which leaves the row
+## under it nothing to follow: the row does not scroll. Buttons in a scrolling row are
+## therefore set to pass the touch on as well.
+func scrollable(c: Control) -> Control:
+	c.mouse_filter = Control.MOUSE_FILTER_PASS
+	return c
+
+## The row is then dragged by hand, one to one with the finger, and remembers when it
+## last moved so that the drag does not also count as a tap on whatever button the finger
+## came to rest on.
+func watch_scroll(sc: ScrollContainer) -> void:
+	sc.get_h_scroll_bar().value_changed.connect(func(_v): _scrolled_at = Time.get_ticks_msec())
+	sc.get_v_scroll_bar().value_changed.connect(func(_v): _scrolled_at = Time.get_ticks_msec())
+	sc.gui_input.connect(func(e: InputEvent): _drag_row(sc, e))
+
+func _drag_row(sc: ScrollContainer, event: InputEvent) -> void:
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		_touch_input = true   # from here on the mouse is only an echo of the finger
+	var by := 0.0
+	if event is InputEventScreenDrag:
+		by = (event as InputEventScreenDrag).relative.x
+	elif event is InputEventMouseMotion and not _touch_input:
+		var mm := event as InputEventMouseMotion
+		if mm.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			by = mm.relative.x
+	if absf(by) < 0.5:
+		return
+	var before := sc.scroll_horizontal
+	sc.scroll_horizontal = before - int(round(by))
+	if sc.scroll_horizontal != before:
+		_scrolled_at = Time.get_ticks_msec()
+
+## True right after a row has moved under the finger, tap or no tap.
+func just_scrolled() -> bool:
+	return Time.get_ticks_msec() - _scrolled_at < 220
 
 ## The categories, and the pieces in whichever one is open.
 func _rebuild_inventory() -> void:
@@ -700,9 +774,11 @@ func _rebuild_inventory() -> void:
 		var b := button(tr(str(entry[1])), "AccentButton" if cat == edit_cat else "GhostButton", 62)
 		b.custom_minimum_size.x = 0
 		b.pressed.connect(func():
+			if just_scrolled():
+				return
 			edit_cat = cat
 			_rebuild_inventory())
-		edit_cat_box.add_child(b)
+		edit_cat_box.add_child(scrollable(b))
 	_thumb_tiles.clear()
 	var kinds := Furniture.in_category(edit_cat)
 	for kind in kinds:
@@ -715,8 +791,11 @@ func _rebuild_inventory() -> void:
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		b.add_theme_constant_override("icon_max_width", 112)
 		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		b.pressed.connect(func(): furniture_picked.emit(kind))
-		edit_item_box.add_child(b)
+		b.pressed.connect(func():
+			if just_scrolled():
+				return
+			furniture_picked.emit(kind))
+		edit_item_box.add_child(scrollable(b))
 		_thumb_tiles[kind] = b
 	if thumbs != null:
 		thumbs.request(kinds)
@@ -898,8 +977,11 @@ func _make_chip(b: Dictionary, selected: bool) -> Control:
 		btn.add_theme_stylebox_override("pressed", _flat(Color(a.r, a.g, a.b, 0.5), 16, Vector2(0, 0), a, 5))
 	var id := str(b["id"])
 	btn.set_meta("book_id", id)
-	btn.pressed.connect(func(): tray_chip_pressed.emit(id))
-	return btn
+	btn.pressed.connect(func():
+		if just_scrolled():
+			return
+		tray_chip_pressed.emit(id))
+	return scrollable(btn)
 
 func _chip_for(id: String) -> Control:
 	for c in tray_box.get_children():
@@ -1045,6 +1127,10 @@ var _sheet_max_h := 400.0
 var _sheet_fixed := false
 var _kb_h := 0.0
 var _bottom_inset := 0.0
+var _top_inset := 0.0
+var _plan_bar_h := 0.0   # the editing bar at its tallest, for framing the plan
+var _scrolled_at := -10000   # when a scrolling row last moved, in milliseconds
+var _touch_input := false    # a finger is driving, so the emulated mouse is ignored
 
 func open_sheet(title: String, height_frac := 0.55, fixed_height := false) -> VBoxContainer:
 	for c in sheet_content.get_children():

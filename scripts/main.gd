@@ -57,11 +57,17 @@ var held_pos := Vector2.ZERO
 var held_rot := 0.0
 var held_wall := -1
 var held_slot := -1
+## Where the piece sits relative to the finger that took hold of it, in metres on the
+## floor. Kept for as long as it is in hand, so it does not jump to sit centred under
+## the finger and the corner that was grabbed stays under the finger.
+var held_grab := Vector2.ZERO
 var held_fits := false
 
-## Furniture is dropped on a grid and turned in eighths, which keeps a room looking
-## arranged rather than scattered and makes a piece easy to line up with its neighbour.
-const SNAP_POS := 0.125
+## Furniture is dropped on the floor map's tiles and turned in eighths, which keeps a
+## room looking arranged rather than scattered and makes a piece easy to line up with
+## its neighbour. A piece takes a run of whole tiles (see EditOverlay.tile_span) rather
+## than snapping its origin to some finer grid: that way its edges land on the map's
+## lines, whatever size its model happens to measure.
 const SNAP_ROT := PI / 4.0
 ## How close to a wall a wall-hung piece has to be dragged before it takes a slot.
 const WALL_GRAB := 1.2
@@ -69,10 +75,9 @@ const WALL_GRAB := 1.2
 ## Straight down on the room. The room is half again as wide as it is deep and a phone is
 ## the other way round, so the plan is turned a quarter turn: the long walls run down the
 ## screen and the room fills the width. West ends up at the top, north on the right.
-const PLAN_SIZE := 12.0
 const PLAN_HEIGHT := 9.0
-## Pushes the room up the screen, leaving the lower part for the inventory.
-const PLAN_SHIFT := 1.4
+## Breathing room between the walls and the edge of the plan, in metres.
+const PLAN_PAD := 0.3
 
 ## Looking straight down, turned a quarter so the room's long axis runs down the screen.
 ## Built by hand because a "look at" cannot aim straight down: the direction and the
@@ -128,6 +133,9 @@ func _ready() -> void:
 	hud.edit_room_pressed.connect(enter_edit)
 	hud.edit_view_pressed.connect(toggle_edit_view)
 	hud.edit_done_pressed.connect(exit_edit)
+	hud.plan_band_changed.connect(func():
+		if mode == Mode.EDIT and edit_top:
+			_fit_plan())
 	hud.furniture_picked.connect(take_furniture)
 	hud.furniture_rotate_pressed.connect(turn_held)
 	hud.furniture_place_pressed.connect(drop_held)
@@ -280,8 +288,9 @@ func enter_edit() -> void:
 		# under the room node, so a rebuild takes the map with it
 		room3d.add_child(edit_overlay)
 	refresh_overlay()
-	_update_edit_camera(false)
+	# the bar first: the plan is framed around whatever it leaves free
 	_update_edit_hud()
+	_update_edit_camera(false)
 	hud.set_holding("", true, false, tr("Tap a piece to move it, or pick one from below"))
 
 func exit_edit() -> void:
@@ -316,19 +325,46 @@ func blocked_rects(skip := "") -> Array:
 		out.append(Styles.slot_rect(int(d["wall"]), int(d["slot"])))
 	return out
 
-func refresh_overlay() -> void:
+## Redraws the floor map. `skip` leaves one piece off it: the one in hand, whose tiles
+## travel with the ghost rather than staying red where it was picked up.
+func refresh_overlay(skip := "") -> void:
 	if edit_overlay != null:
-		edit_overlay.refresh(current_room(), blocked_rects())
+		edit_overlay.refresh(current_room(), blocked_rects(skip))
 
 ## Looking straight down, or standing in the room the way you normally do.
 func _update_edit_camera(animate: bool) -> void:
 	room3d.set_ceiling_visible(not edit_top)
 	if edit_top:
-		rig.snap_ortho(Vector3(PLAN_SHIFT, PLAN_HEIGHT, 0), PLAN_BASIS, PLAN_SIZE)
+		_fit_plan()
 	elif animate:
 		rig.go_to(_room_eye(), _room_basis(), ROOM_FOV, 0.4)
 	else:
 		rig.snap(_room_eye(), _room_basis(), ROOM_FOV)
+
+## Frames the whole floor in the strip of screen the bars leave it.
+##
+## An orthographic camera is given one extent only — how much of the world fits from the
+## top of the screen to the bottom — and works the other out from the shape of the
+## window. A fixed number therefore fits the room on one phone and cuts it off on the
+## next, so the size is worked out from both: the room has to fit down the free strip
+## *and* across the screen, and the wider demand wins. The camera is then slid along the
+## room's long axis until the floor sits in the middle of that strip rather than in the
+## middle of the screen.
+##
+## The plan is turned a quarter turn (see PLAN_BASIS), so the room's width runs down the
+## screen and its depth across it.
+func _fit_plan() -> void:
+	var vp := get_viewport().get_visible_rect().size
+	if vp.x < 1.0 or vp.y < 1.0:
+		return
+	var band := hud.plan_band()
+	var strip: float = maxf(1.0, band.y - band.x)
+	var down := Styles.ROOM_W + 2.0 * PLAN_PAD    # metres that must fit top to bottom
+	var across := Styles.ROOM_D + 2.0 * PLAN_PAD  # metres that must fit left to right
+	var size: float = maxf(down * vp.y / strip, across * vp.y / vp.x)
+	# how far the middle of the strip sits below the middle of the screen, in metres
+	var drop: float = ((band.x + band.y) * 0.5 - vp.y * 0.5) / vp.y * size
+	rig.snap_ortho(Vector3(-drop, PLAN_HEIGHT, 0), PLAN_BASIS, size)
 
 func _update_edit_hud() -> void:
 	var room := current_room()
@@ -352,6 +388,7 @@ func take_furniture(kind: String) -> void:
 	held_id = ""
 	held_rot = 0.0
 	held_pos = Vector2(0.0, 0.6)
+	held_grab = Vector2.ZERO   # nothing was grabbed: a new piece sits under the finger
 	if not _build_held():
 		return
 	if Furniture.anchor(kind) == Furniture.WALL and not _snap_to_wall(held_pos):
@@ -361,7 +398,11 @@ func take_furniture(kind: String) -> void:
 	_update_held()
 
 ## Picks a piece already standing in the room back up, to move, turn or remove it.
-func lift_furniture(fid: String) -> void:
+##
+## `grab` is the spot on the floor the reader took hold of it by. The piece keeps that
+## offset while it is dragged, which is what putting something in a corner needs: take
+## the piece by the corner that has to go in, and that corner is what follows the finger.
+func lift_furniture(fid: String, grab = null) -> void:
 	var e := Library.find_furniture(current_room_id(), fid)
 	if e.is_empty():
 		return
@@ -376,10 +417,13 @@ func lift_furniture(fid: String) -> void:
 		held_pos = Vector2(t.origin.x, t.origin.z)
 	else:
 		held_pos = Vector2(float(e.get("x", 0.0)), float(e.get("z", 0.0)))
-	# the piece in hand is drawn by the ghost, so the one on the floor steps aside
+	held_grab = Vector2.ZERO if grab == null else held_pos - (grab as Vector2)
+	# the piece in hand is drawn by the ghost, so the one on the floor steps aside, and
+	# its tiles go with it
 	var placed := room3d.furniture_node(fid)
 	if placed != null:
 		placed.visible = false
+	refresh_overlay(fid)
 	if not _build_held():
 		return
 	_update_held()
@@ -403,6 +447,9 @@ func turn_held() -> void:
 		hud.toast(tr("A wall piece takes the angle of its wall."))
 		return
 	held_rot = fposmod(held_rot + SNAP_ROT, TAU)
+	# turned, the piece covers a different run of tiles, so it settles on the grid afresh
+	if Furniture.anchor(held_kind) != Furniture.WALL:
+		held_pos = _snap_to_tiles(held_pos)
 	_update_held()
 
 ## Drags the piece to wherever the finger is on the floor.
@@ -412,12 +459,21 @@ func move_held_to(screen_pos: Vector2) -> void:
 	var hit: Variant = _floor_point(screen_pos)
 	if hit == null:
 		return
-	var p: Vector2 = hit
+	var p: Vector2 = (hit as Vector2) + held_grab
 	if Furniture.anchor(held_kind) == Furniture.WALL:
 		_snap_to_wall(p)
 	else:
-		held_pos = Vector2(snappedf(p.x, SNAP_POS), snappedf(p.y, SNAP_POS))
+		held_pos = _snap_to_tiles(p)
 	_update_held()
+
+## The spot nearest `p` at which the piece in hand sits squarely on the map's tiles: its
+## box centred in the run of whole tiles it covers. The box is measured at `p` with the
+## piece's current turn, since a piece at an angle covers more tiles than one square on.
+func _snap_to_tiles(p: Vector2) -> Vector2:
+	var r := Furniture.world_rect(held_local, p.x, p.y, held_rot)
+	if r.size == Vector2.ZERO:
+		return EditOverlay.snap_point(p)
+	return p + (EditOverlay.tile_span(r).get_center() - r.get_center())
 
 ## Where a point on the screen lands on the floor, or null when the ray misses it.
 func _floor_point(screen_pos: Vector2):
@@ -473,7 +529,12 @@ func _update_held() -> void:
 		held_fits = _fits(rect) if anchor != Furniture.CEILING else _inside_room(rect_or_point(rect))
 	Room3D.set_ghost_tint(held_node, EditOverlay.GHOST_OK if held_fits else EditOverlay.GHOST_BAD)
 	if edit_overlay != null:
-		edit_overlay.show_ghost(rect, held_fits)
+		# a floor piece is shown as the tiles it takes, the same language as the map; a
+		# wall piece keeps its own box, since wall spots are not on the tile grid
+		var shown := rect
+		if anchor != Furniture.WALL and rect.size != Vector2.ZERO:
+			shown = EditOverlay.tile_span(rect)
+		edit_overlay.show_ghost(shown, held_fits)
 	var hint := ""
 	if not held_fits:
 		hint = tr("Does not fit here")
@@ -487,34 +548,24 @@ func rect_or_point(r: Rect2) -> Rect2:
 		return r
 	return Rect2(held_pos - Vector2(0.1, 0.1), Vector2(0.2, 0.2))
 
-## How far two pieces may overlap before the editor calls it a clash. A piece is measured
-## by the axis-aligned box around it, which for anything standing at an angle is larger
-## than the piece itself, and real furniture tucks together anyway: a side table belongs
-## beside the armchair, not a hand's width off it.
-const TOUCH := 0.08
-
-## Inside the walls, and clear of everything already standing in the room.
+## Inside the walls, and clear of everything already standing in the room. Boxes are
+## pulled in by the touching allowance (Furniture.TOUCH) before they are compared.
 func _fits(r: Rect2) -> bool:
 	if not _inside_room(rect_or_point(r)):
 		return false
 	if r.size == Vector2.ZERO:
 		return true
-	var mine := _snug(r)
+	var mine := Furniture.snug(r)
 	for b in blocked_rects(held_id):
-		if _snug(b).intersects(mine):
+		if Furniture.snug(b).intersects(mine):
 			return false
 	return true
-
-## A box pulled in by the touching allowance, without ever turning inside out.
-static func _snug(r: Rect2) -> Rect2:
-	var d := minf(TOUCH, minf(r.size.x, r.size.y) / 2.0 - 0.001)
-	return r.grow(-maxf(d, 0.0))
 
 func _inside_room(r: Rect2) -> bool:
 	var room := Rect2(-Styles.ROOM_W / 2.0, -Styles.ROOM_D / 2.0, Styles.ROOM_W, Styles.ROOM_D)
 	# a hearth built into the wall pokes a little past it, so the walls are as forgiving
 	# as the furniture is with its neighbours
-	return room.grow(TOUCH).encloses(r)
+	return room.grow(Furniture.TOUCH).encloses(r)
 
 ## Commits the piece where it stands.
 func drop_held() -> void:
@@ -570,9 +621,13 @@ func release_held(restore: bool) -> void:
 	held_id = ""
 	held_wall = -1
 	held_slot = -1
+	held_grab = Vector2.ZERO
 	held_fits = false
 	if edit_overlay != null:
 		edit_overlay.hide_ghost()
+		if restore:
+			# the piece is back on the floor, so its tiles are red again
+			refresh_overlay()
 	if mode == Mode.EDIT:
 		hud.set_holding("")
 
@@ -987,7 +1042,7 @@ func _on_tap(pos: Vector2) -> void:
 			return
 		var fid := room3d.furniture_at(p)
 		if fid != "":
-			lift_furniture(fid)
+			lift_furniture(fid, p)
 		return
 	if mode == Mode.ROOM:
 		# While choosing a spot, taps must not open a shelf or walk through a door.
@@ -1407,6 +1462,16 @@ func _run_shot() -> void:
 				if str(f["kind"]) == "armchair":
 					lift_furniture(str(f["id"]))
 					break
+		"furnish_plan", "furnish_plan_lift":
+			# the floor map from above, with a piece in hand, to check it sits on the tiles
+			enter_edit()
+			if shot_mode == "furnish_plan":
+				_shot_hold("armchair", Vector2(-1.6, -1.9))
+			else:
+				for f in room3d.furniture_rects():
+					if str(f["kind"]) == "armchair":
+						lift_furniture(str(f["id"]), Vector2(f["rect"].get_center()) + Vector2(0.2, 0.1))
+						break
 		"reading":
 			hud.dialogs.open_reading_list()
 		"archive":
@@ -1494,7 +1559,7 @@ func _shot_hold(kind: String, at: Vector2) -> void:
 	if Furniture.anchor(kind) == Furniture.WALL:
 		_snap_to_wall(at)
 	else:
-		held_pos = at
+		held_pos = _snap_to_tiles(at)
 	_update_held()
 
 ## Screenshot helper: where a functional prop actually stands, now that the reader places

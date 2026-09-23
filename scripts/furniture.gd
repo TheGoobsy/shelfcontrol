@@ -177,6 +177,18 @@ static func raw_footprint(node: Node3D) -> Rect2:
 		return Rect2()
 	return Rect2(box.position.x, box.position.z, box.size.x, box.size.z)
 
+## How far two pieces may overlap before the editor calls it a clash. A piece is measured
+## by the axis-aligned box around it, which for anything standing at an angle is larger
+## than the piece itself, and real furniture tucks together anyway: a side table belongs
+## beside the armchair, not a hand's width off it.
+const TOUCH := 0.08
+
+## A box pulled in by the touching allowance, without ever turning inside out. This is
+## the box that is really in the way: what the fit test and the floor map both go by.
+static func snug(r: Rect2) -> Rect2:
+	var d := minf(TOUCH, minf(r.size.x, r.size.y) / 2.0 - 0.001)
+	return r.grow(-maxf(d, 0.0))
+
 ## A footprint turned by `rot` and moved to (x, z), as the axis-aligned box that contains it.
 ## Furniture keeps its own angle, but the editor reserves the containing box, which is the
 ## honest thing to test against when two pieces are turned differently.

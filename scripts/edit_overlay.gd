@@ -28,6 +28,26 @@ var _grid: MeshInstance3D
 var _ring: MeshInstance3D
 var _ghost: MeshInstance3D
 
+## The run of whole tiles a box takes up once it is on the grid: as many tiles as it
+## needs on each axis, starting on a tile line, and centred on where the box is now. A
+## piece is dropped so that its box sits in the middle of this run, which is what makes
+## furniture line up with the map instead of straddling its lines. A hair of slack keeps
+## a piece measured at a whisker over a whole number of tiles from claiming one more.
+static func tile_span(r: Rect2) -> Rect2:
+	var slack := 0.01
+	var tiles := Vector2(
+		maxf(1.0, ceilf((r.size.x - slack) / CELL)),
+		maxf(1.0, ceilf((r.size.y - slack) / CELL)))
+	var size := tiles * CELL
+	var c := r.get_center()
+	var min_corner := Vector2(snappedf(c.x - size.x / 2.0, CELL), snappedf(c.y - size.y / 2.0, CELL))
+	return Rect2(min_corner, size)
+
+## Where a piece without a floor box (a hanging lamp) settles: on the lines and the
+## centres of the tiles, so it can hang over the middle of a table as well as its edge.
+static func snap_point(p: Vector2) -> Vector2:
+	return Vector2(snappedf(p.x, CELL / 2.0), snappedf(p.y, CELL / 2.0))
+
 static var _mat: StandardMaterial3D
 
 ## Unshaded and translucent: the map is information, not a surface in the room.
@@ -76,14 +96,18 @@ func show_ghost(r: Rect2, ok: bool) -> void:
 func hide_ghost() -> void:
 	_ghost.mesh = null
 
-## One quad per tile, green or red depending on whether anything stands on it. A tile
-## counts as taken as soon as a box touches it, so the red area is never smaller than
-## what is really in the way.
+## One quad per tile, green or red depending on whether anything stands on it. Each box
+## is pulled in by the touching allowance first, the same as the fit test does, so a red
+## tile is one a piece really cannot share and a piece dropped on the grid colours
+## exactly the run of tiles it was snapped to.
 func _build_grid(blocked: Array) -> Mesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var w: float = Styles.ROOM_W
 	var d: float = Styles.ROOM_D
+	var snug: Array = []
+	for b in blocked:
+		snug.append(Furniture.snug(b as Rect2))
 	var nx := int(round(w / CELL))
 	var nz := int(round(d / CELL))
 	var cw := w / float(nx)
@@ -94,7 +118,7 @@ func _build_grid(blocked: Array) -> Mesh:
 			var z0 := -d / 2.0 + float(iz) * cd
 			var cell := Rect2(x0, z0, cw, cd)
 			var col := FREE
-			for b in blocked:
+			for b in snug:
 				if (b as Rect2).intersects(cell):
 					col = BLOCKED
 					break
